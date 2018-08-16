@@ -13,6 +13,10 @@
 
 package de.sciss.tumulus
 
+import java.io.FileInputStream
+import java.util.Properties
+
+import de.sciss.file._
 import de.sciss.model.Model
 import de.sciss.model.impl.ModelImpl
 import de.sciss.submin.Submin
@@ -57,13 +61,21 @@ object Main  {
         .text("SFTP user name")
         .action { (v, c) => c.copy(sftpUser = v) }
 
+      opt[String]('p', "sftp-pass")
+        .text("SFTP password")
+        .action { (v, c) => c.copy(sftpPass = v) }
+
       opt[String]('h', "sftp-host")
         .text(s"SFTP host name (default: ${default.sftpHost})")
         .action { (v, c) => c.copy(sftpHost = v) }
 
+      opt[String]('f', "sftp-finger")
+        .text(s"SFTP server finger print, empty '' to accept all (default ${default.sftpFinger})")
+        .action { (v, c) => c.copy(sftpFinger = v) }
+
       opt[String]('d', "sftp-deb-dir")
-        .text(s"SFTP software sub-directory (default: ${default.stfpDebDir})")
-        .action { (v, c) => c.copy(stfpDebDir = v) }
+        .text(s"SFTP software sub-directory (default: ${default.sftpDebDir})")
+        .action { (v, c) => c.copy(sftpDebDir = v) }
 
       opt[Unit]("bright-ui")
         .text("Use a bright UI")
@@ -77,8 +89,39 @@ object Main  {
         .text("Use verbose logging")
         .action { (_, c) => c.copy(verbose = true) }
     }
-    p.parse(args, default).fold(sys.exit(1)) { implicit config =>
-      run()
+    p.parse(args, default).fold(sys.exit(1)) { config0 =>
+      val config = if (config0.sftpUser.nonEmpty && config0.sftpPass.nonEmpty) config0 else {
+        val f = userHome / ".tumulus" / "sftp.properties"
+        val p = new Properties
+        try {
+          val fIn = new FileInputStream(f)
+          try {
+            p.load(fIn)
+            var res = config0
+            if (config0.sftpUser.isEmpty) {
+              res = res.copy(sftpUser = p.getProperty("user"))
+            }
+            if (config0.sftpPass.isEmpty) {
+              res = res.copy(sftpPass = p.getProperty("pass"))
+            }
+            res
+
+          } finally {
+            fIn.close()
+          }
+        } catch {
+          case NonFatal(ex) =>
+            Console.err.println(s"Cannot read $f")
+            ex.printStackTrace()
+            config0
+        }
+      }
+
+      if (!config.verbose) {
+        sys.props.put("org.slf4j.simpleLogger.defaultLogLevel", "error")
+      }
+
+      run()(config)
     }
   }
 

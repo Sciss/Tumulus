@@ -30,7 +30,7 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
   private[this] var available   = Option.empty[Update]
 
   def hasScanned: Boolean = _hasScanned
-  private[this] var scanProc    = Option.empty[Processor[List[String]]]
+  private[this] var scanProc    = Option.empty[Processor[List[SFTP.Entry]]]
   private[this] var updateProc  = Option.empty[Processor[Unit]]
 
   private[this] val ggBack = mkButton("Back") {
@@ -69,17 +69,21 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
     updateProc = None
 
     ggInstall.enabled = false
-    Main.setStatus("Downloading update...")
+    val prefix = "Downloading update..."
+    Main.setStatus(prefix)
     val target = File.createTempIn(userHome, prefix = "tumulus", suffix = ".deb")
 
-    val p = SFTP.download(dir = config.stfpDebDir, file = u.name, target = target)
+    val p = SFTP.download(prefix = prefix, dir = config.sftpDebDir, file = u.name, target = target)
     updateProc = Some(p)
     import Main.ec
     p.onComplete { tr =>
       Swing.onEDT {
         ggInstall.enabled = available.isDefined
-        val msg = if (tr.isSuccess) "Download done." else "Download failed!"
-        Main.setStatus(msg)
+        if (updateProc.contains(p)) {
+          updateProc = None
+          val msg = if (tr.isSuccess) "Download done." else "Download failed!"
+          Main.setStatus(msg)
+        }
       }
     }
   }
@@ -95,7 +99,7 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
     _hasScanned = true
     Main.setStatus("Looking for updates...")
 
-    val p = SFTP.list(config.stfpDebDir)
+    val p = SFTP.list(config.sftpDebDir)
     scanProc = Some(p)
     import Main.ec
     p.onComplete { tr =>
@@ -107,16 +111,17 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
           tr match {
             case Success(names) =>
               val upd = names.flatMap { s =>
-                if (s.startsWith(Main.debPrefix) && s.endsWith(Main.debSuffix)) {
-                  val i   = s.indexOf("_") + 1
-                  val j   = math.max(i, s.lastIndexOf("_"))
-                  val mid = s.substring(i, j)
+                val n = s.name
+                if (s.isFile && n.startsWith(Main.debPrefix) && n.endsWith(Main.debSuffix)) {
+                  val i   = n.indexOf("_") + 1
+                  val j   = math.max(i, n.lastIndexOf("_"))
+                  val mid = n.substring(i, j)
                   val vRemote = Version(mid)
                   val isNewer = current.forall {
                     case vLocal: PreReleaseVersion => vLocal <= vRemote
                     case vLocal => vLocal < vRemote
                   }
-                  if (isNewer) Some(Update(s, vRemote)) else None
+                  if (isNewer) Some(Update(n, vRemote)) else None
                 } else {
                   None
                 }

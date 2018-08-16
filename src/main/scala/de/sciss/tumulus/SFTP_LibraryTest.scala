@@ -8,9 +8,9 @@ import net.schmizz.sshj.xfer.{FileSystemFile, TransferListener}
 object SFTP_LibraryTest {
   def main(args: Array[String]): Unit = {
 //    testDownload(args(0), args(1), abort = true)
-    testUpload(args(0), args(1))
+//    testUpload(args(0), args(1))
 //    testUpload(args(0), args(1), abort = true)
-//    testList(args(0), args(1))
+    testList(args(0), args(1))
   }
 
   def testList(sftpUser: String, sftpPass: String): Unit = {

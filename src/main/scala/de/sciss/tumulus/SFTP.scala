@@ -13,16 +13,20 @@
 
 package de.sciss.tumulus
 
-import java.util.regex.Pattern
-
 import de.sciss.file._
 import de.sciss.processor.Processor
 import de.sciss.tumulus.IO.ProcessorMonitor
+import de.sciss.tumulus.SFTP_LibraryTest.MyTL
+import de.sciss.tumulus.impl.ProcImpl
+import net.schmizz.sshj.common.{LoggerFactory, StreamCopier}
+import net.schmizz.sshj.{DefaultConfig, SSHClient}
+import net.schmizz.sshj.transport.verification.{FingerprintVerifier, PromiscuousVerifier}
+import net.schmizz.sshj.xfer.{FileSystemFile, TransferListener}
 
 import scala.swing.Swing
 
 object SFTP {
-  final val program = "sftp"
+  case class Entry(name: String, isFile: Boolean, isDirectory: Boolean, size: Long, lastModified: Long)
 
   /** Lists the contents of a directory (or the root directory if not specified).
     * Returns the names of the children of that directory.
@@ -30,34 +34,78 @@ object SFTP {
     * @param dir        the path on the server or empty string
     * @param timeOutSec the time-out in seconds (default: 30)
     */
-  def list(dir: String = "", timeOutSec: Long = 60)(implicit config: Config): Processor[List[String]] = {
-    val args = List("-q", config.sftpAddress(dir))
-    IO.processStringInStringOut(program, args, input = "ls -1", timeOutSec = timeOutSec)(out =>
-      out.split("\n").iterator.dropWhile(_.startsWith("sftp>")).toList
-    )
+  def list(dir: String = "", timeOutSec: Long = 60)(implicit config: Config): Processor[List[Entry]] = {
+    runProc[List[Entry]] {
+      withSSH { ssh =>
+        val c = ssh.newSFTPClient()
+        import scala.collection.JavaConverters._
+        val dir1 = if (dir.isEmpty) "." else dir
+        c.ls(dir1).iterator().asScala.map { info =>
+          val attr = info.getAttributes
+          Entry(info.getName, isFile = info.isRegularFile, isDirectory = info.isDirectory,
+            size = attr.getSize, lastModified = attr.getMtime)
+        } .toList
+      }
+    }
   }
 
-  def download(dir: String = "", file: String, timeOutSec: Long = 1800, target: File, resume: Boolean = false)
+  def download(prefix: String, dir: String = "", file: String, timeOutSec: Long = 1800, target: File)
               (implicit config: Config): ProcessorMonitor[Unit] = {
+    runProc[Unit] {
+      withSSH { ssh =>
+        val c = ssh.newSCPFileTransfer()
+        val tl = new ProgressTracker(prefix)
+        c.setTransferListener(tl)
+        val path = if (dir.isEmpty) file else s"$dir/$file"
+        c.download(path, new FileSystemFile(target))
+      }
+    }
+  }
 
-    val args = List(/* "-q", */ "-v", config.sftpAddress(dir))
-    val patProgress = Pattern.compile("\\s+")
-    val flags = if (resume) "-af" else "-f"
-//    val input = s"progress\nget $flags $file ${target.path}"
-    val input = s"get $flags $file ${target.path}"
-    IO.processStringIn(program, args, input = input, timeOutSec = timeOutSec) { lineOut =>
-      println(s"LINE: $lineOut")
-      if (lineOut.startsWith("sftp>") || lineOut.startsWith("Progress meter ")) {
-        ()
-      } else {
-        val arr = patProgress.split(lineOut)
-        val s = arr.iterator.drop(1).mkString("Downloading...  ", "  ", "")
-        Swing.onEDT {
-          Main.setStatus(s)
+  private def runProc[A](block: => A): ProcessorMonitor[A] = {
+    val p = new ProcImpl[A] {
+      protected def body(): A = block
+    }
+    import Main.ec
+    p.start()
+    p
+  }
+
+  private def withSSH[A](body: SSHClient => A)(implicit config: Config): A = {
+    val ssh = new SSHClient
+    val kv = if (config.sftpFinger.isEmpty) new PromiscuousVerifier
+             else FingerprintVerifier.getInstance(config.sftpFinger)
+    ssh.addHostKeyVerifier(kv)
+    ssh.connect(config.sftpHost)
+    ssh.authPassword(config.sftpUser, config.sftpPass)
+    try {
+      body(ssh)
+    } finally {
+      ssh.disconnect()
+    }
+  }
+
+  private class ProgressTracker(prefix: String) extends TransferListener {
+    def directory(name: String): TransferListener = {
+//      println(s"LOG: started transferring directory `$name")
+      this
+    }
+
+    def file(name: String, size: Long): StreamCopier.Listener = {
+//      println(s"LOG: started transferring file `$path` ($size bytes)")
+//      println("_" * 100)
+      new StreamCopier.Listener() {
+        private[this] var lastProg = 0
+        override def reportProgress(transferred: Long): Unit = {
+          val prog = ((transferred * 100) / size).toInt
+          if (lastProg < prog) {
+            lastProg = prog
+            Swing.onEDT {
+              Main.setStatus(s"$prefix $prog%")
+            }
+          }
         }
       }
-    } {
-      ()
     }
   }
 }
