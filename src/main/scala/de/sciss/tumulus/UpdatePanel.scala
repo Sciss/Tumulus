@@ -13,34 +13,45 @@
 
 package de.sciss.tumulus
 
-import scala.swing.{BorderPanel, Button, GridPanel, Label, ListView}
-import UI._
+import de.sciss.file._
+import de.sciss.processor.Processor
+import de.sciss.tumulus.UI._
+import semverfi.{PreReleaseVersion, SemVersion, Version}
+
+import scala.swing.{BorderPanel, Button, ButtonGroup, GridPanel, Label, RadioButton, Swing}
+import scala.util.{Failure, Success}
 
 class UpdatePanel(w: MainWindow)(implicit config: Config)
   extends BorderPanel {
 
+  case class Update(name: String, version: SemVersion)
+
   private[this] var _hasScanned = false
+  private[this] var available   = Option.empty[Update]
 
   def hasScanned: Boolean = _hasScanned
+  private[this] var scanProc    = Option.empty[Processor[List[String]]]
+  private[this] var updateProc  = Option.empty[Processor[Unit]]
 
   private[this] val ggBack = mkButton("Back") {
     w.home()
   }
-  private[this] val ggList = new ListView[String] {
-    visibleRowCount = 3
-  }
+  private[this] val ggList  = new RadioButton()
+  private[this] val grpList = new ButtonGroup(ggList)
+  ggList.visible = false
 
-  private[this] val ggScan = mkButton("Scan") {
-    _hasScanned = true
+  private[this] val ggScan: Button = mkButton("Scan") {
+    scan()
   }
 
   private[this] val ggInstall = mkButton("Install") {
-
+    available.foreach(install)
   }
+  ggInstall.enabled = false
 
   add(new GridPanel(0, 1) {
     contents += ggBack
-    contents += new Label("Available updates:")
+    contents += new Label("Available update:")
   }, BorderPanel.Position.North)
 
   add(ggList, BorderPanel.Position.Center)
@@ -50,7 +61,91 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
     contents += ggInstall
   }, BorderPanel.Position.South)
 
-  def scan(): Unit = {
+  // --------------- INSTALL UPDATE ---------------
 
+  def install(u: Update): Unit = {
+    UI.requireEDT()
+    updateProc.foreach(_.abort())
+    updateProc = None
+
+    ggInstall.enabled = false
+    Main.setStatus("Downloading update...")
+    val target = File.createTempIn(userHome, prefix = "tumulus", suffix = ".deb")
+
+    val p = SFTP.download(dir = config.stfpDebDir, file = u.name, target = target)
+    updateProc = Some(p)
+    import Main.ec
+    p.onComplete { tr =>
+      Swing.onEDT {
+        ggInstall.enabled = available.isDefined
+        val msg = if (tr.isSuccess) "Download done." else "Download failed!"
+        Main.setStatus(msg)
+      }
+    }
+  }
+
+  // --------------- FIND UPDATE ---------------
+
+  def scan(): Unit = {
+    UI.requireEDT()
+    scanProc.foreach(_.abort())
+    scanProc = None
+
+    ggScan.enabled = false
+    _hasScanned = true
+    Main.setStatus("Looking for updates...")
+
+    val p = SFTP.list(config.stfpDebDir)
+    scanProc = Some(p)
+    import Main.ec
+    p.onComplete { tr =>
+      Swing.onEDT {
+        ggScan.enabled = true
+        if (scanProc.contains(p)) {
+          scanProc = None
+          val current = Main.semVersion.opt
+          tr match {
+            case Success(names) =>
+              val upd = names.flatMap { s =>
+                if (s.startsWith(Main.debPrefix) && s.endsWith(Main.debSuffix)) {
+                  val i   = s.indexOf("_") + 1
+                  val j   = math.max(i, s.lastIndexOf("_"))
+                  val mid = s.substring(i, j)
+                  val vRemote = Version(mid)
+                  val isNewer = current.forall {
+                    case vLocal: PreReleaseVersion => vLocal <= vRemote
+                    case vLocal => vLocal < vRemote
+                  }
+                  if (isNewer) Some(Update(s, vRemote)) else None
+                } else {
+                  None
+                }
+              }
+              val hasUpdate = upd.nonEmpty
+              Main.setStatus(if (hasUpdate) "Found update." else "No update found.")
+
+              if (hasUpdate) {
+                val u = upd.maxBy(_.version)
+                available         = Some(u)
+                ggList.text       = u.version.toString
+                grpList.select(ggList)
+                ggList.visible    = true
+                ggInstall.enabled = /* true && */ updateProc.isEmpty
+                revalidate()
+                repaint()
+              } else {
+                available         = None
+                ggList.visible    = false
+                ggInstall.enabled = false
+                revalidate()
+                repaint()
+              }
+
+            case Failure(ex) =>
+              Main.setStatus(s"Update scan failed: ${ex.getMessage}")
+          }
+        }
+      }
+    }
   }
 }

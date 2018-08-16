@@ -16,7 +16,9 @@ package de.sciss.tumulus
 import de.sciss.model.Model
 import de.sciss.model.impl.ModelImpl
 import de.sciss.submin.Submin
+import semverfi.{SemVersion, Version}
 
+import scala.concurrent.ExecutionContext
 import scala.swing.Swing
 import scala.util.control.NonFatal
 
@@ -37,10 +39,15 @@ object Main  {
     case NonFatal(_) => "?"
   }
 
-  final def name        : String = "Tumulus"
-  final def version     : String = buildInfString("version")
-  final def builtAt     : String = buildInfString("builtAtString")
-  final def fullVersion : String = s"v$version, built $builtAt"
+  final def name        : String      = "Tumulus"
+  final def debPrefix   : String      = "tumulus-pi"
+  final def debSuffix   : String      = ".deb"
+  final def version     : String      = buildInfString("version")
+  final def builtAt     : String      = buildInfString("builtAtString")
+  final def fullVersion : String      = s"v$version, built $builtAt"
+  final def semVersion  : SemVersion  = Version(version)
+
+  implicit val ec: ExecutionContext = ExecutionContext.global
 
   def main(args: Array[String]): Unit = {
     val default = Config()
@@ -54,9 +61,9 @@ object Main  {
         .text(s"SFTP host name (default: ${default.sftpHost})")
         .action { (v, c) => c.copy(sftpHost = v) }
 
-//      opt[Seq[String]]('s', "start")
-//        .text("List of names of start objects in workspace's root directory")
-//        .action { (v, c) => c.copy(startObjects = v.toList) }
+      opt[String]('d', "sftp-deb-dir")
+        .text(s"SFTP software sub-directory (default: ${default.stfpDebDir})")
+        .action { (v, c) => c.copy(stfpDebDir = v) }
 
       opt[Unit]("bright-ui")
         .text("Use a bright UI")
@@ -65,6 +72,10 @@ object Main  {
       opt[Unit]("no-fullscreen")
         .text("Start in non-fullscreen mode")
         .action { (_, c) => c.copy(fullScreen = false) }
+
+      opt[Unit]('v', "verbose")
+        .text("Use verbose logging")
+        .action { (_, c) => c.copy(verbose = true) }
     }
     p.parse(args, default).fold(sys.exit(1)) { implicit config =>
       run()

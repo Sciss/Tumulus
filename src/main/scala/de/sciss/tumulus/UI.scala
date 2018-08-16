@@ -1,5 +1,7 @@
 package de.sciss.tumulus
 
+import java.awt.EventQueue
+
 import scala.swing.Button
 
 object UI {
@@ -10,4 +12,7 @@ object UI {
     b.preferredSize = d
     b
   }
+
+  def requireEDT(): Unit =
+    require(EventQueue.isDispatchThread)
 }

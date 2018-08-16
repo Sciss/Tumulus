@@ -32,15 +32,27 @@ class MainWindow(implicit config: Config) extends Frame { win =>
   private[this] val lbVersion = new Label(s"${Main.name} ${Main.fullVersion}")
 
   private[this] val ggStatus  = new TextField("Ready.", 12) {
-    editable = false
+    editable  = false
+    focusable = false
   }
 
   private[this] val ggTestUpload = Button("Test Upload") {
     TestUpload()
   }
 
+//  private[this] val ggTestList = Button("Test List") {
+//    import Main.ec
+//    SFTP.list().onComplete {
+//      case Success(xs) => println(xs.mkString("\n"))
+//      case Failure(ex) => ex.printStackTrace()
+//    }
+//  }
+
+  private[this] val pUpdate = new UpdatePanel(win)
+
   private[this] val ggUpdate: Button = Button("Update...") {
     cards.show(CardUpdate)
+    if (!pUpdate.hasScanned) pUpdate.scan()
   }
 
   private[this] val ggQuit = Button("Quit") {
@@ -60,6 +72,7 @@ class MainWindow(implicit config: Config) extends Frame { win =>
     contents ++= Seq(
       lbVersion,
       ggTestUpload,
+//      ggTestList,
       ggUpdate,
       ggQuit,
       ggShutdown
@@ -68,7 +81,7 @@ class MainWindow(implicit config: Config) extends Frame { win =>
 
   private[this] lazy val cards = new CardPanel {
     add(CardHome  , cardFirst)
-    add(CardUpdate, new UpdatePanel(win))
+    add(CardUpdate, pUpdate)
   }
 
 

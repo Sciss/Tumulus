@@ -14,6 +14,9 @@
 package de.sciss.tumulus
 
 final case class Config(isLaptop: Boolean = false, sftpUser: String = "undefined",
-                        sftpHost: String = "ssh.strato.de", dark: Boolean = true, fullScreen: Boolean = true) {
+                        sftpHost: String = "ssh.strato.de", dark: Boolean = true, fullScreen: Boolean = true,
+                        verbose: Boolean = false,
+                        stfpDebDir: String = "deb") {
 
+  def sftpAddress(path: String): String = s"$sftpUser@$sftpHost:$path"
 }

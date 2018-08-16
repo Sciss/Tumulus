@@ -42,10 +42,12 @@ lazy val root = project.withId(piNameL).in(file("."))
       "de.sciss"          %% "model"            % "0.3.4",
       "de.sciss"          %% "scalaaudiofile"   % "1.4.7",
       "de.sciss"          %% "swingplus"        % "0.3.1",
+      "de.sciss"          %% "processor"        % "0.4.1",
       "de.sciss"          %  "submin"           % "0.2.2",
       // "de.sciss"          %  "jrpicam"          % "0.2.0",
       // "com.pi4j"          %  "pi4j-core"        % "1.1",
-      "com.github.scopt"  %% "scopt"            % "3.7.0"
+      "com.github.scopt"  %% "scopt"            % "3.7.0",
+      "net.leibman"       %% "semverfi"         % "0.2.0"
     ),
     mainClass in (Compile, run) := Some("de.sciss.tumulus.Main")
   )
