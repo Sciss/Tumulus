@@ -47,7 +47,8 @@ lazy val root = project.withId(piNameL).in(file("."))
       // "de.sciss"          %  "jrpicam"          % "0.2.0",
       // "com.pi4j"          %  "pi4j-core"        % "1.1",
       "com.github.scopt"  %% "scopt"            % "3.7.0",
-      "net.leibman"       %% "semverfi"         % "0.2.0"
+      "net.leibman"       %% "semverfi"         % "0.2.0",
+      "com.hierynomus"    %  "sshj"             % "0.26.0"
     ),
     mainClass in (Compile, run) := Some("de.sciss.tumulus.Main")
   )

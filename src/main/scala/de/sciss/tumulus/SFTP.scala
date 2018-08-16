@@ -40,10 +40,11 @@ object SFTP {
   def download(dir: String = "", file: String, timeOutSec: Long = 1800, target: File, resume: Boolean = false)
               (implicit config: Config): ProcessorMonitor[Unit] = {
 
-    val args = List("-q", config.sftpAddress(dir))
+    val args = List(/* "-q", */ "-v", config.sftpAddress(dir))
     val patProgress = Pattern.compile("\\s+")
     val flags = if (resume) "-af" else "-f"
-    val input = s"progress\nget $flags $file ${target.path}"
+//    val input = s"progress\nget $flags $file ${target.path}"
+    val input = s"get $flags $file ${target.path}"
     IO.processStringIn(program, args, input = input, timeOutSec = timeOutSec) { lineOut =>
       println(s"LINE: $lineOut")
       if (lineOut.startsWith("sftp>") || lineOut.startsWith("Progress meter ")) {
