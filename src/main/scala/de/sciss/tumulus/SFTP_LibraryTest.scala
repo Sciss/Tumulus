@@ -5,13 +5,14 @@ import net.schmizz.sshj.common.StreamCopier
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
 import net.schmizz.sshj.xfer.{FileSystemFile, TransferListener}
 
+// N.B.: If you add `main`, this appears in sbt native packager
 object SFTP_LibraryTest {
-  def main(args: Array[String]): Unit = {
-//    testDownload(args(0), args(1), abort = true)
-//    testUpload(args(0), args(1))
-//    testUpload(args(0), args(1), abort = true)
-    testList(args(0), args(1))
-  }
+//  def main(args: Array[String]): Unit = {
+////    testDownload(args(0), args(1), abort = true)
+////    testUpload(args(0), args(1))
+////    testUpload(args(0), args(1), abort = true)
+//    testList(args(0), args(1))
+//  }
 
   def testList(sftpUser: String, sftpPass: String): Unit = {
     val ssh = new SSHClient
