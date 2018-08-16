@@ -7,7 +7,10 @@ import net.schmizz.sshj.xfer.{FileSystemFile, TransferListener}
 
 object SFTP_LibraryTest {
   def main(args: Array[String]): Unit = {
-    testDownload(args(0), args(1), abort = true)
+//    testDownload(args(0), args(1), abort = true)
+    testUpload(args(0), args(1))
+//    testUpload(args(0), args(1), abort = true)
+//    testList(args(0), args(1))
   }
 
   def testList(sftpUser: String, sftpPass: String): Unit = {
@@ -26,6 +29,30 @@ object SFTP_LibraryTest {
       ssh.disconnect()
     }
     println("--5")
+  }
+
+  def testUpload(sftpUser: String, sftpPass: String, abort: Boolean = false): Unit = {
+    val ssh = new SSHClient
+    ssh.addHostKeyVerifier(new PromiscuousVerifier)
+    println("--1")
+    ssh.connect("ssh.strato.de")
+    println("--1b")
+    ssh.authPassword(sftpUser, sftpPass)
+
+    println("--2")
+    try {
+      println("--3")
+      val c = ssh.newSCPFileTransfer()
+      val tl = new MyTL(abortPerc = if (abort) 10 else -1)
+      c.setTransferListener(tl)
+      c.upload(new FileSystemFile("/data/temp/Untitled 1.aif"), "baz.aif")
+//      c.upload(new FileSystemFile("/data/temp/_killme2.aif"), "")
+      println("--4")
+    } finally {
+      println("--5")
+      ssh.disconnect()
+    }
+    println("--6")
   }
 
   def testDownload(sftpUser: String, sftpPass: String, abort: Boolean = false): Unit = {
