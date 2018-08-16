@@ -16,13 +16,13 @@ package de.sciss.tumulus
 import de.sciss.file._
 import de.sciss.processor.Processor
 import de.sciss.tumulus.IO.ProcessorMonitor
-import de.sciss.tumulus.SFTP_LibraryTest.MyTL
 import de.sciss.tumulus.impl.ProcImpl
-import net.schmizz.sshj.common.{LoggerFactory, StreamCopier}
-import net.schmizz.sshj.{DefaultConfig, SSHClient}
+import net.schmizz.sshj.SSHClient
+import net.schmizz.sshj.common.StreamCopier
 import net.schmizz.sshj.transport.verification.{FingerprintVerifier, PromiscuousVerifier}
 import net.schmizz.sshj.xfer.{FileSystemFile, TransferListener}
 
+import scala.concurrent.blocking
 import scala.swing.Swing
 
 object SFTP {
@@ -64,7 +64,7 @@ object SFTP {
 
   private def runProc[A](block: => A): ProcessorMonitor[A] = {
     val p = new ProcImpl[A] {
-      protected def body(): A = block
+      protected def body(): A = blocking(block)
     }
     import Main.ec
     p.start()

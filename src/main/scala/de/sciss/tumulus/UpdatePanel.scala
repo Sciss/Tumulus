@@ -16,8 +16,10 @@ package de.sciss.tumulus
 import de.sciss.file._
 import de.sciss.processor.Processor
 import de.sciss.tumulus.UI._
+import de.sciss.tumulus.impl.ProcImpl
 import semverfi.{PreReleaseVersion, SemVersion, Version}
 
+import scala.concurrent.blocking
 import scala.swing.{BorderPanel, Button, ButtonGroup, GridPanel, Label, RadioButton, Swing}
 import scala.util.{Failure, Success}
 
@@ -71,22 +73,54 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
     ggInstall.enabled = false
     val prefix = "Downloading update..."
     Main.setStatus(prefix)
-    val target = File.createTempIn(userHome, prefix = "tumulus", suffix = ".deb")
+    val debFile = File.createTempIn(userHome, prefix = "tumulus", suffix = ".deb")
 
-    val p = SFTP.download(prefix = prefix, dir = config.sftpDebDir, file = u.name, target = target)
-    updateProc = Some(p)
+    val pDownload = SFTP.download(prefix = prefix, dir = config.sftpDebDir, file = u.name, target = debFile)
+    updateProc = Some(pDownload)
     import Main.ec
-    p.onComplete { tr =>
+    pDownload.onComplete { trDownload =>
       Swing.onEDT {
-        ggInstall.enabled = available.isDefined
-        if (updateProc.contains(p)) {
+        if (updateProc.contains(pDownload)) {
           updateProc = None
-          val msg = if (tr.isSuccess) "Download done." else "Download failed!"
-          Main.setStatus(msg)
+          trDownload match {
+            case Success(_) =>
+              Main.setStatus("Installing update...")
+              val pUpd = new ProcImpl[Unit] {
+                protected def body(): Unit = blocking {
+                  val code = IO.sudo("dpkg", List("-i", debFile.path))
+                  if (code != 0) throw new Exception(s"Code $code")
+                }
+              }
+              updateProc = Some(pUpd)
+              pUpd.start()
+              pUpd.onComplete { trInstall =>
+                Swing.onEDT {
+                  if (updateProc.contains(pUpd)) {
+                    updateProc = None
+                    val msg = trInstall match {
+                      case Success(_) => "Updated. Now reboot!"
+                      case Failure(ex) => s"Update failed ${ex.getMessage}"
+                    }
+                    Main.setStatus(msg)
+                  }
+                }
+              }
+
+            case Failure(ex) =>
+              enableInstall()
+              val msg = ex match {
+                case IO.Aborted() => s"Download failed! ${ex.getMessage}"
+                case _ => ""
+              }
+              Main.setStatus(msg)
+          }
         }
       }
     }
   }
+
+  private def enableInstall(): Unit =
+    ggInstall.enabled = available.isDefined
 
   // --------------- FIND UPDATE ---------------
 
@@ -104,8 +138,8 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
     import Main.ec
     p.onComplete { tr =>
       Swing.onEDT {
-        ggScan.enabled = true
         if (scanProc.contains(p)) {
+          ggScan.enabled = true
           scanProc = None
           val current = Main.semVersion.opt
           tr match {

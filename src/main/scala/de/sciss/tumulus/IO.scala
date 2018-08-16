@@ -17,15 +17,18 @@ import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
+import de.sciss.file.File
 import de.sciss.kollflitz.ISeq
 import de.sciss.processor.Processor
 import de.sciss.tumulus.impl.ProcImpl
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, blocking}
-import scala.sys.process.{Process, ProcessLogger}
+import scala.sys.process._
 
 object IO {
+  case class Aborted() extends Exception
+
   trait ProcessorMonitor[A] extends Processor[A] {
     def progress_=(value: Double): Unit
   }
@@ -97,5 +100,16 @@ object IO {
       start()(Main.ec)
     }
     p
+  }
+
+  def sudo(cmd: String, args: List[String])(implicit config: Config): Int = {
+    val pb = if (config.isLaptop) {
+      val cmd1 = "sudo" :: "-A" :: cmd :: args
+      Process(cmd1, Option.empty[File], "SUDO_ASKPASS" -> "/usr/bin/ssh-askpass")
+    } else {
+      val cmd1 = "sudo" :: cmd :: args
+      Process(cmd1)
+    }
+    pb.!
   }
 }

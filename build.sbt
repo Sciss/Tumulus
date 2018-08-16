@@ -4,7 +4,7 @@ lazy val baseName  = "Tumulus"
 lazy val baseNameL = baseName.toLowerCase
 
 lazy val commonSettings = Seq(
-  version      := "0.1.0-SNAPSHOT",
+  version      := "0.1.2-SNAPSHOT",
   description  := "An art project",
   organization := "de.sciss",
   homepage     := Some(url("https://github.com/Sciss/baseName")),
@@ -50,7 +50,7 @@ lazy val root = project.withId(piNameL).in(file("."))
       "net.leibman"       %% "semverfi"         % "0.2.0",
       "com.hierynomus"    %  "sshj"             % "0.26.0"
     ),
-    mainClass in (Compile, run) := Some("de.sciss.tumulus.Main")
+    mainClass in Compile := Some(piMain),
   )
   .settings(piDebianSettings)
 

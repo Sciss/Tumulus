@@ -85,6 +85,10 @@ object Main  {
         .text("Start in non-fullscreen mode")
         .action { (_, c) => c.copy(fullScreen = false) }
 
+      opt[Unit]("laptop")
+        .text("Run from laptop")
+        .action { (_, c) => c.copy(isLaptop = true) }
+
       opt[Unit]('v', "verbose")
         .text("Use verbose logging")
         .action { (_, c) => c.copy(verbose = true) }
