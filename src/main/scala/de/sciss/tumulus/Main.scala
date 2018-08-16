@@ -15,6 +15,7 @@ package de.sciss.tumulus
 
 import de.sciss.model.Model
 import de.sciss.model.impl.ModelImpl
+import de.sciss.submin.Submin
 
 import scala.swing.Swing
 import scala.util.control.NonFatal
@@ -56,18 +57,33 @@ object Main  {
 //      opt[Seq[String]]('s', "start")
 //        .text("List of names of start objects in workspace's root directory")
 //        .action { (v, c) => c.copy(startObjects = v.toList) }
-//
-//      opt[Unit]('c', "clean")
-//        .text("Clean old aux files")
-//        .action { (_, c) => c.copy(cleanAux = true) }
+
+      opt[Unit]("bright-ui")
+        .text("Use a bright UI")
+        .action { (_, c) => c.copy(dark = false) }
+
+      opt[Unit]("no-fullscreen")
+        .text("Start in non-fullscreen mode")
+        .action { (_, c) => c.copy(fullScreen = false) }
     }
-    p.parse(args, default).fold(sys.exit(1))(run)
+    p.parse(args, default).fold(sys.exit(1)) { implicit config =>
+      run()
+    }
   }
 
-  def run(config: Config): Unit = {
+  def run()(implicit config: Config): Unit = {
+    Submin.install(config.dark)
     Swing.onEDT {
-      val w = new MainWindow(config)
-      w.fullscreen = true
+      val w = new MainWindow
+      if (config.fullScreen) {
+        w.fullscreen = true
+      } else {
+        w.centerOnScreen()
+        w.open()
+      }
     }
   }
+
+  def exit(): Unit =
+    sys.exit()
 }

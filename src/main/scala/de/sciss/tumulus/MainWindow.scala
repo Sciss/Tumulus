@@ -18,19 +18,33 @@ import java.awt.event.{ActionEvent, InputEvent, KeyEvent}
 
 import javax.swing.{AbstractAction, JComponent, KeyStroke}
 
-import scala.swing.{Button, Frame, GridPanel, Label, Swing}
+import scala.swing.{BorderPanel, Button, Dimension, Frame, GridPanel, Label, Swing, TextField}
 
-class MainWindow(config: Config) extends Frame {
+object MainWindow {
+  final val CardHome    = "home"
+  final val CardUpdate  = "update"
+}
+class MainWindow(implicit config: Config) extends Frame { win =>
+  import MainWindow._
+
   private[this] var fsState = false
 
-  private[this] val lbStatus = new Label(s"${Main.name} ${Main.fullVersion}")
+  private[this] val lbVersion = new Label(s"${Main.name} ${Main.fullVersion}")
+
+  private[this] val ggStatus  = new TextField("Ready.", 12) {
+    editable = false
+  }
 
   private[this] val ggTestUpload = Button("Test Upload") {
-    TestUpload(config)
+    TestUpload()
+  }
+
+  private[this] val ggUpdate: Button = Button("Update...") {
+    cards.show(CardUpdate)
   }
 
   private[this] val ggQuit = Button("Quit") {
-    sys.exit()
+    Main.exit()
   }
 
   private[this] val ggShutdown = Button("Shutdown") {
@@ -38,21 +52,43 @@ class MainWindow(config: Config) extends Frame {
     Seq("sudo", "shutdown", "now").!
   }
 
-  peer.setUndecorated(true)
-  contents = new GridPanel(0, 1) {
+  title = Main.name
+
+//  if (config.fullScreen) peer.setUndecorated(true)
+
+  private[this] val cardFirst = new GridPanel(0, 1) {
     contents ++= Seq(
-      lbStatus,
+      lbVersion,
       ggTestUpload,
+      ggUpdate,
       ggQuit,
       ggShutdown
     )
   }
 
+  private[this] lazy val cards = new CardPanel {
+    add(CardHome  , cardFirst)
+    add(CardUpdate, new UpdatePanel(win))
+  }
+
+
+
+  contents = new BorderPanel {
+    add(cards   , BorderPanel.Position.Center)
+    add(ggStatus, BorderPanel.Position.South)
+    preferredSize = new Dimension(320, 480)
+  }
+
   installFullscreenKey()
 
   Main.status.addListener {
-    case u => Swing.onEDT(lbStatus.text = u)
+    case u => Swing.onEDT(ggStatus.text = u)
   }
+
+  override def closeOperation(): Unit =
+    Main.exit()
+
+  def home(): Unit = cards.first()
 
   private def installFullscreenKey(): Unit = {
     val display = peer.getRootPane

@@ -14,6 +14,6 @@
 package de.sciss.tumulus
 
 final case class Config(isLaptop: Boolean = false, sftpUser: String = "undefined",
-                        sftpHost: String = "ssh.strato.de") {
+                        sftpHost: String = "ssh.strato.de", dark: Boolean = true, fullScreen: Boolean = true) {
 
 }
