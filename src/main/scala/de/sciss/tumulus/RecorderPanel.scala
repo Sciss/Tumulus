@@ -13,76 +13,66 @@
 
 package de.sciss.tumulus
 
-import de.sciss.lucre.swing.deferTx
-import de.sciss.lucre.synth.{InMemory, Server, Txn}
-import de.sciss.osc
-import de.sciss.synth.proc.AuralSystem
-import de.sciss.tumulus.UI._
-import de.sciss.tumulus.impl.MicMeterImpl
+import java.awt.Color
 
-import scala.swing.{BorderPanel, GridPanel}
+import de.sciss.tumulus.UI._
+
+import scala.swing.{BorderPanel, Component, Dimension, Graphics2D, GridPanel}
 
 class RecorderPanel(w: MainWindow)(implicit config: Config)
   extends BorderPanel {
 
-  type S = InMemory
-  private[this] val system: S = InMemory()
+//  type S = InMemory
+//  private[this] val system: S = InMemory()
 
-  private[this] val auralSystem = AuralSystem(global = true)
+  private[this] val audioRecorder = new AudioRecorder
+
+  audioRecorder.addListener {
+    case AudioRecorder.Booted =>
+      ggRun.enabled = true
+      Main.setStatus("Recorder ready.")
+  }
 
   private[this] val ggBack = mkBackPane("Recorder") {
     w.home()
   }
 
-  private[this] val ggMeter = new MicMeterImpl
+  private[this] val ggCam: Component = new Component {
+    preferredSize = new Dimension(320, 240)
+    opaque        = true
+
+    override protected def paintComponent(g: Graphics2D): Unit = {
+      g.setColor(Color.blue)
+      val p = peer
+      g.fillRect(0, 0, p.getWidth, p.getHeight)
+    }
+  }
+
+  private[this] val ggRun   = mkToggleButton("Run") { sel =>
+    if (sel) {
+      audioRecorder.run()
+    } else {
+
+    }
+  }
+  ggRun.enabled = false
+
+//  add(new GridPanel(0, 1) {
+//    contents += ggBack
+//  }, BorderPanel.Position.North)
+
+  add(ggBack, BorderPanel.Position.North)
+
+  add(ggCam, BorderPanel.Position.Center)
 
   add(new GridPanel(0, 1) {
-    contents += ggBack
-    contents += ggMeter.component
-//    contents += new Label("Running version:")
-//    contents += UI.mkInfoLabel(Main.version)
-//    contents += new Label("Available update:")
-  }, BorderPanel.Position.North)
+    contents += audioRecorder.meterComponent
+    contents += ggRun
+  }, BorderPanel.Position.South)
 
-  whenShown(this) {
-    boot()
-  }
-
-  private[this] var _hasBooted = false
-
-  private def booted(s: Server)(implicit tx: Txn): Unit = {
-//    val inBus   = Bus.soundIn(s, 1)
-//    val mIn     = AudioBusMeter(AudioBusMeter.Strip(inBus, s.defaultGroup , addBefore) :: Nil)
-    ggMeter.init(s)
-//    deferTx {
-//      add(mIn.component, BorderPanel.Position.East)
-//      revalidate()
-//      repaint()
-//    }
-  }
-
-  def boot(): Unit = {
-    requireEDT()
-    if (_hasBooted) return
-    _hasBooted = true
-
-    val sCfg = Server.Config()
-//    val cCfg = Client.Config()
-
-    sCfg.deviceName         = Some(config.jackName)
-    sCfg.audioBusChannels   = 32
-    sCfg.audioBuffers       = 32
-    sCfg.inputBusChannels   = 1
-    sCfg.outputBusChannels  = 2
-    sCfg.transport          = osc.TCP
-
-    system.step { implicit tx =>
-      auralSystem.addClient(new AuralSystem.Client {
-        def auralStarted(s: Server)(implicit tx: Txn): Unit = booted(s)
-
-        def auralStopped()(implicit tx: Txn): Unit = ()
-      })
-      auralSystem.start(sCfg /* , cCfg */)
-    }
+  whenShownAndHidden(this) {
+    audioRecorder.boot()
+  } {
+    ggRun.selected = false
   }
 }

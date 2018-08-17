@@ -27,7 +27,7 @@ import scala.concurrent.{Await, Future, blocking}
 import scala.sys.process._
 
 object IO {
-  case class Aborted() extends Exception
+//  case class Aborted() extends Exception
 
   trait ProcessorMonitor[A] extends Processor[A] {
     def progress_=(value: Double): Unit

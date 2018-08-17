@@ -64,8 +64,7 @@ class MainWindow(implicit config: Config) extends Frame { win =>
   }
 
   private[this] val ggShutdown = Button("Shutdown") {
-    import scala.sys.process._
-    Seq("sudo", "shutdown", "now").!
+    Main.shutdown()
   }
 
   title = Main.name
@@ -78,8 +77,10 @@ class MainWindow(implicit config: Config) extends Frame { win =>
 //      ggTestUpload,
 //      ggTestList,
       ggRecorder,
+      new Label,
       ggUpdate,
-      ggQuit,
+//      ggQuit,
+      new Label,
       ggShutdown
     )
   }

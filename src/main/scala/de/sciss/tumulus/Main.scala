@@ -24,6 +24,7 @@ import semverfi.{SemVersion, Version}
 
 import scala.concurrent.ExecutionContext
 import scala.swing.Swing
+import scala.util.Try
 import scala.util.control.NonFatal
 
 object Main  {
@@ -96,6 +97,30 @@ object Main  {
       opt[String]("jack-name")
         .text(s"Jack client name (default: ${default.jackName})")
         .action { (v, c) => c.copy(jackName = v) }
+
+      opt[Double]("audio-dur")
+        .text(s"Audio chunk duration in seconds (default: ${default.audioDur})")
+        .validate { v => if (v >= 1) success else failure("audio-dur must be >= 1") }
+        .action { (v, c) => c.copy(audioDur = v) }
+
+      opt[Double]("hpf")
+        .text(s"Audio high pass filter frequency in Hz (default: ${default.hpf})")
+        .validate { v => if (v >= 16 && v <= 1000) success else failure("hpf must be >= 16 and <= 1000") }
+        .action { (v, c) => c.copy(hpf = v) }
+
+      opt[Unit]("no-audio-monitor")
+        .text("Do not pass audio mic input to output for monitoring")
+        .action { (_, c) => c.copy(audioMonitor = false) }
+
+      opt[Unit]("no-qjackctl")
+        .text("Do not start QJackCtl upon start")
+        .action { (_, c) => c.copy(qJackCtl = false) }
+
+      opt[Int]("qjackctl-delay")
+        .text(s"Delay in seconds to wait after starting qJackCtl (default: ${default.qJackCtlDly})")
+        .validate { v => if (v >= 0) success else failure("hpf must be >= 0") }
+        .action { (v, c) => c.copy(qJackCtlDly = v) }
+
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
       val config = if (config0.sftpUser.nonEmpty && config0.sftpPass.nonEmpty) config0 else {
@@ -134,6 +159,16 @@ object Main  {
   }
 
   def run()(implicit config: Config): Unit = {
+    if (config.qJackCtl) {
+      import scala.sys.process._
+      Try(Process("qjackctl", Nil).run())
+      val hasDly = config.qJackCtlDly > 0
+      if (hasDly) {
+        println(s"Waiting ${config.qJackCtlDly}s for qJackCtl to launch...")
+        Thread.sleep((config.qJackCtlDly * 1000).toLong)
+      }
+    }
+
     Submin.install(config.dark)
     Swing.onEDT {
       val w = new MainWindow
@@ -148,4 +183,14 @@ object Main  {
 
   def exit(): Unit =
     sys.exit()
+
+  def reboot(): Unit = {
+    import scala.sys.process._
+    Seq("sudo", "reboot", "now").!
+  }
+
+  def shutdown(): Unit = {
+    import scala.sys.process._
+    Seq("sudo", "shutdown", "now").!
+  }
 }

@@ -11,7 +11,6 @@ import de.sciss.synth
 import de.sciss.synth.Ops.stringToControl
 import de.sciss.synth.{SynthGraph, addBefore, message}
 
-import scala.collection.immutable.{Seq => ISeq}
 import scala.concurrent.stm.Ref
 import scala.swing.{Component, Orientation}
 
@@ -32,9 +31,6 @@ final class MicMeterImpl extends ComponentHolder[Component] {
       meter.dispose()
     }
   }
-
-  @inline private[this] def disposeRef(synths: ISeq[Synth])(implicit tx: Txn): Unit =
-    synths.foreach(_.dispose())
 
   component = meter
 
@@ -58,8 +54,10 @@ final class MicMeterImpl extends ComponentHolder[Component] {
 
     val SynId = syn.peer.id
     val resp = message.Responder.add(syn.server.peer) {
-      case Message("/$meter", SynId, _, vals @ _*) =>
-        val pairs = vals.asInstanceOf[Seq[Float]].toIndexedSeq
+//      case Message("/$meter", SynId, _, vals @ _*) =>
+      case Message("/$meter", SynId, _, peak: Float, rms: Float) =>
+//        val pairs = vals.asInstanceOf[Seq[Float]].toIndexedSeq
+        val pairs = peak +: rms +: Vector.empty
         val time  = System.currentTimeMillis()
         defer {
           meter.update(pairs, 0, time)

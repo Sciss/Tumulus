@@ -48,10 +48,16 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
     scan()
   }
 
-  private[this] val ggInstall = mkButton("Install") {
-    available.foreach(install)
+  private[this] var isReboot = false
+
+  private[this] val ggInstallReboot = mkButton("Install") {
+    if (isReboot) {
+      Main.reboot()
+    } else {
+      available.foreach(install)
+    }
   }
-  ggInstall.enabled = false
+  ggInstallReboot.enabled = false
 
   add(new GridPanel(0, 1) {
     contents += ggBack
@@ -64,7 +70,7 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
 
   add(new GridPanel(0, 1) {
     contents += ggScan
-    contents += ggInstall
+    contents += ggInstallReboot
   }, BorderPanel.Position.South)
 
   whenShown(this)(if (!hasScanned) scan())
@@ -76,7 +82,7 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
     updateProc.foreach(_.abort())
     updateProc = None
 
-    ggInstall.enabled = false
+    ggInstallReboot.enabled = false
     val prefix = "Downloading update..."
     Main.setStatus(prefix)
     val debFile = File.createTempIn(userHome, prefix = "tumulus", suffix = ".deb")
@@ -103,11 +109,15 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
                 Swing.onEDT {
                   if (updateProc.contains(pUpd)) {
                     updateProc = None
-                    val msg = trInstall match {
-                      case Success(_) => "Updated. Now reboot!"
-                      case Failure(ex) => s"Update failed ${ex.getMessage}"
+                    trInstall match {
+                      case Success(_) =>
+                        Main.setStatus("Updated. Now reboot!")
+                        ggInstallReboot.text = "Reboot"
+                        isReboot = true
+
+                      case Failure(ex) =>
+                        Main.setStatus(s"Update failed ${ex.getMessage}")
                     }
-                    Main.setStatus(msg)
                   }
                 }
               }
@@ -115,8 +125,8 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
             case Failure(ex) =>
               enableInstall()
               val msg = ex match {
-                case IO.Aborted() => s"Download failed! ${ex.getMessage}"
-                case _ => ""
+                case Processor.Aborted() => ""
+                case _ => s"Download failed! ${ex.getMessage}"
               }
               Main.setStatus(msg)
           }
@@ -126,7 +136,7 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
   }
 
   private def enableInstall(): Unit =
-    ggInstall.enabled = available.isDefined
+    ggInstallReboot.enabled = available.isDefined
 
   // --------------- FIND UPDATE ---------------
 
@@ -175,13 +185,13 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
                 ggAvail.text       = u.version.toString
 //                grpList.select(ggList)
                 ggAvail.visible    = true
-                ggInstall.enabled = /* true && */ updateProc.isEmpty
+                ggInstallReboot.enabled = /* true && */ updateProc.isEmpty
                 revalidate()
                 repaint()
               } else {
                 available         = None
                 ggAvail.visible    = false
-                ggInstall.enabled = false
+                ggInstallReboot.enabled = false
                 revalidate()
                 repaint()
               }

@@ -1,11 +1,24 @@
+/*
+ *  UI.scala
+ *  (Tumulus)
+ *
+ *  Copyright (c) 2018 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is published under the GNU Affero General Public License v3+
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.tumulus
 
 import java.awt.EventQueue
 
 import de.sciss.swingplus.GridPanel
 
-import scala.swing.event.UIElementShown
-import scala.swing.{Button, Component, Label, TextField}
+import scala.swing.event.{ButtonClicked, UIElementHidden, UIElementShown}
+import scala.swing.{Button, Component, Label, TextField, ToggleButton}
 
 object UI {
   def mkBackPane(card: String)(action: => Unit): Component = {
@@ -24,10 +37,32 @@ object UI {
     }
   }
 
+  def whenShownAndHidden(c: Component, listen: Boolean = true)(shown: => Unit)(hidden: => Unit): Unit = {
+    if (listen) c.listenTo(c)
+    c.reactions += {
+      case UIElementShown (_) => shown
+      case UIElementHidden(_) => hidden
+    }
+  }
+
+  final val RowHeight = 64
+
   def mkButton(text: String)(action: => Unit): Button = {
     val b = Button(text)(action)
     val d = b.preferredSize
-    d.height = math.max(d.height, 64)
+    d.height = math.max(d.height, RowHeight)
+    b.preferredSize = d
+    b
+  }
+
+  def mkToggleButton(text: String)(action: Boolean => Unit): ToggleButton = {
+    val b = new ToggleButton(text)
+    b.listenTo(b)
+    b.reactions += {
+      case ButtonClicked(_) => action(b.selected)
+    }
+    val d = b.preferredSize
+    d.height = math.max(d.height, RowHeight)
     b.preferredSize = d
     b
   }

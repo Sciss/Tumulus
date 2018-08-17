@@ -18,3 +18,15 @@ File `~/.tumulus/sftp.properties` should exist and have entries for `user` and `
 Application should be first installed via `sudo dpkg -i tumulus-pi_version_all.deb`. It may then
 be updated from within the application.
 File `tumulus-pi.desktop` should be copied to `~/.config/autostart/`.
+
+QJackCtl must be installed, and it must be configured to auto-start a configuration for the
+Behringer UMC22 at 44.1 kHz. 'Soft' mode and 3 periods of 1024 are recommended.
+It also must load a patch bay that contains a bidirectional link
+between client `system` and client `Tumulus`. QJackCtl is launched from the main application.
+
+The UMC should have phantom power enabled and direct monitoring disabled. The headphones socket
+can be used to monitor the signal.
+
+For encoding, `flac` must be installed on the Pi (`sudo apt install flac`).
+
+The Pi is expected to be connected to a 320x480 pixels touch screen, the UI layout is made for this size.

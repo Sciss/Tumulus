@@ -20,6 +20,7 @@ import de.sciss.tumulus.impl.ProcImpl
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.common.StreamCopier
 import net.schmizz.sshj.transport.verification.{FingerprintVerifier, PromiscuousVerifier}
+import net.schmizz.sshj.xfer.scp.ScpCommandLine
 import net.schmizz.sshj.xfer.{FileSystemFile, TransferListener}
 
 import scala.concurrent.blocking
@@ -58,6 +59,22 @@ object SFTP {
         c.setTransferListener(tl)
         val path = if (dir.isEmpty) file else s"$dir/$file"
         c.download(path, new FileSystemFile(target))
+      }
+    }
+  }
+
+  def upload(prefix: String, source: File, dir: String = "", file: String, timeOutSec: Long = 3600)
+            (implicit config: Config): ProcessorMonitor[Unit] = {
+    runProc[Unit] {
+      withSSH { ssh =>
+        val c = ssh.newSCPFileTransfer()
+        val tl = new ProgressTracker(prefix)
+        c.setTransferListener(tl)
+        val path = if (dir.isEmpty) file else s"$dir/$file"
+        // cf. https://github.com/hierynomus/sshj/issues/449
+//        c.upload(new FileSystemFile(source), path)
+        val up = c.newSCPUploadClient()
+        up.copy(new FileSystemFile(source), path, ScpCommandLine.EscapeMode.NoEscape)
       }
     }
   }
