@@ -10,4 +10,4 @@ before_script:
   - jdk_switcher use $JDK
 
 script:
-  - sbt ++$TRAVIS_SCALA_VERSION test assembly
+        - sbt ++$TRAVIS_SCALA_VERSION test debian:packageBin

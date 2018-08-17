@@ -41,6 +41,7 @@ lazy val root = project.withId(piNameL).in(file("."))
       "de.sciss"          %% "equal"                % "0.1.2",
       "de.sciss"          %% "model"                % "0.3.4",
       "de.sciss"          %% "scalaaudiofile"       % "1.4.7",
+      "de.sciss"          %% "audiowidgets-app"     % "1.12.2",
       "de.sciss"          %% "soundprocesses-views" % "3.21.0",
       "de.sciss"          %% "swingplus"            % "0.3.1",
       "de.sciss"          %% "processor"            % "0.4.1",
