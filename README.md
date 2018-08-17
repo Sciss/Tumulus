@@ -12,3 +12,9 @@ To contact the author, send an email to `contact at sciss.de`.
 
 Builds with sbt against Scala 2.12.
 
+## preparation
+
+File `~/.tumulus/sftp.properties` should exist and have entries for `user` and `pass` (`key=value`).
+Application should be first installed via `sudo dpkg -i tumulus-pi_version_all.deb`. It may then
+be updated from within the application.
+File `tumulus-pi.desktop` should be copied to `~/.config/autostart/`.

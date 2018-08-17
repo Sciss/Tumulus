@@ -18,27 +18,27 @@ import java.awt.event.{ActionEvent, InputEvent, KeyEvent}
 
 import javax.swing.{AbstractAction, JComponent, KeyStroke}
 
-import scala.swing.{BorderPanel, Button, Dimension, Frame, GridPanel, Label, Swing, TextField}
+import scala.swing.{BorderPanel, Button, Dimension, Frame, GridPanel, Label, Swing}
+import scala.util.control.NonFatal
 
 object MainWindow {
-  final val CardHome    = "home"
-  final val CardUpdate  = "update"
+  final val CardHome      = "home"
+  final val CardUpdate    = "update"
+  final val CardRecorder  = "recorder"
 }
 class MainWindow(implicit config: Config) extends Frame { win =>
   import MainWindow._
 
   private[this] var fsState = false
 
-  private[this] val lbVersion = new Label(s"${Main.name} ${Main.fullVersion}")
+//  private[this] val lbVersion = new Label(s"${Main.name} ${Main.fullVersion}")
+  private[this] val lbVersion = new Label(s"<html><body><b>${Main.name}</b></body>")
 
-  private[this] val ggStatus  = new TextField("Ready.", 12) {
-    editable  = false
-    focusable = false
-  }
+  private[this] val ggStatus  = UI.mkInfoLabel("Ready.")
 
-  private[this] val ggTestUpload = Button("Test Upload") {
-    TestUpload()
-  }
+//  private[this] val ggTestUpload = Button("Test Upload") {
+//    TestUpload()
+//  }
 
 //  private[this] val ggTestList = Button("Test List") {
 //    import Main.ec
@@ -50,9 +50,13 @@ class MainWindow(implicit config: Config) extends Frame { win =>
 
   private[this] val pUpdate = new UpdatePanel(win)
 
-  private[this] val ggUpdate: Button = Button("Update...") {
+  private[this] val ggUpdate: Button = Button("Update") {
     cards.show(CardUpdate)
-    if (!pUpdate.hasScanned) pUpdate.scan()
+//    if (!pUpdate.hasScanned) pUpdate.scan()
+  }
+
+  private[this] val ggRecorder: Button = Button("Recorder") {
+    cards.show(CardRecorder)
   }
 
   private[this] val ggQuit = Button("Quit") {
@@ -68,23 +72,34 @@ class MainWindow(implicit config: Config) extends Frame { win =>
 
 //  if (config.fullScreen) peer.setUndecorated(true)
 
-  private[this] val cardFirst = new GridPanel(0, 1) {
+  private[this] val pHome = new GridPanel(0, 1) {
     contents ++= Seq(
       lbVersion,
-      ggTestUpload,
+//      ggTestUpload,
 //      ggTestList,
+      ggRecorder,
       ggUpdate,
       ggQuit,
       ggShutdown
     )
   }
 
-  private[this] lazy val cards = new CardPanel {
-    add(CardHome  , cardFirst)
-    add(CardUpdate, pUpdate)
+  private[this] val pRecorder = try {
+    new RecorderPanel(win)
+  } catch {
+    case NonFatal(ex) =>
+      new GridPanel(0, 1) {
+        contents += new Label("Failed to create recorder")
+        contents += new Label(ex.getClass.getName)
+        contents += new Label(ex.getMessage)
+      }
   }
 
-
+  private[this] lazy val cards = new CardPanel {
+    add(CardHome    , pHome     )
+    add(CardUpdate  , pUpdate   )
+    add(CardRecorder, pRecorder )
+  }
 
   contents = new BorderPanel {
     add(cards   , BorderPanel.Position.Center)

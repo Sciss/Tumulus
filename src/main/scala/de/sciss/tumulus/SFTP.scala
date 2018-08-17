@@ -95,13 +95,13 @@ object SFTP {
 //      println(s"LOG: started transferring file `$path` ($size bytes)")
 //      println("_" * 100)
       new StreamCopier.Listener() {
-        private[this] var lastProg = 0
+        private[this] var lastProgress = 0
         override def reportProgress(transferred: Long): Unit = {
-          val prog = ((transferred * 100) / size).toInt
-          if (lastProg < prog) {
-            lastProg = prog
+          val progress = ((transferred * 100) / size).toInt
+          if (lastProgress < progress) {
+            lastProgress = progress
             Swing.onEDT {
-              Main.setStatus(s"$prefix $prog%")
+              Main.setStatus(s"$prefix $progress%")
             }
           }
         }

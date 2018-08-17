@@ -24,6 +24,7 @@ package de.sciss.tumulus
   * @param dark         if `true`, use dark colour scheme for UI
   * @param fullScreen   if `true`, put UI in full-screen mode
   * @param verbose      if `true`, print additional debug logging messages
+  * @param jackName     jack audio client name
   */
 final case class Config(isLaptop  : Boolean = false,
                         sftpUser  : String  = "",
@@ -33,7 +34,8 @@ final case class Config(isLaptop  : Boolean = false,
                         sftpDebDir: String  = "deb",
                         dark      : Boolean = true,
                         fullScreen: Boolean = true,
-                        verbose   : Boolean = false
+                        verbose   : Boolean = false,
+                        jackName  : String  = "Tumulus"
                        ) {
 
   def sftpAddress(path: String): String = s"$sftpUser@$sftpHost:$path"

@@ -20,7 +20,7 @@ import de.sciss.tumulus.impl.ProcImpl
 import semverfi.{PreReleaseVersion, SemVersion, Version}
 
 import scala.concurrent.blocking
-import scala.swing.{BorderPanel, Button, ButtonGroup, GridPanel, Label, RadioButton, Swing}
+import scala.swing.{BorderPanel, Button, GridPanel, Label, Swing}
 import scala.util.{Failure, Success}
 
 class UpdatePanel(w: MainWindow)(implicit config: Config)
@@ -35,12 +35,14 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
   private[this] var scanProc    = Option.empty[Processor[List[SFTP.Entry]]]
   private[this] var updateProc  = Option.empty[Processor[Unit]]
 
-  private[this] val ggBack = mkButton("Back") {
+  private[this] val ggBack = mkBackPane("Update") {
     w.home()
   }
-  private[this] val ggList  = new RadioButton()
-  private[this] val grpList = new ButtonGroup(ggList)
-  ggList.visible = false
+//  private[this] val ggList  = new RadioButton()
+//  private[this] val grpList = new ButtonGroup(ggList)
+//  ggList.visible = false
+
+  private[this] val ggAvail = UI.mkInfoLabel("")
 
   private[this] val ggScan: Button = mkButton("Scan") {
     scan()
@@ -53,15 +55,19 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
 
   add(new GridPanel(0, 1) {
     contents += ggBack
+    contents += new Label("Running version:")
+    contents += UI.mkInfoLabel(Main.version)
     contents += new Label("Available update:")
   }, BorderPanel.Position.North)
 
-  add(ggList, BorderPanel.Position.Center)
+  add(ggAvail, BorderPanel.Position.Center)
 
   add(new GridPanel(0, 1) {
     contents += ggScan
     contents += ggInstall
   }, BorderPanel.Position.South)
+
+  whenShown(this)(if (!hasScanned) scan())
 
   // --------------- INSTALL UPDATE ---------------
 
@@ -166,15 +172,15 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
               if (hasUpdate) {
                 val u = upd.maxBy(_.version)
                 available         = Some(u)
-                ggList.text       = u.version.toString
-                grpList.select(ggList)
-                ggList.visible    = true
+                ggAvail.text       = u.version.toString
+//                grpList.select(ggList)
+                ggAvail.visible    = true
                 ggInstall.enabled = /* true && */ updateProc.isEmpty
                 revalidate()
                 repaint()
               } else {
                 available         = None
-                ggList.visible    = false
+                ggAvail.visible    = false
                 ggInstall.enabled = false
                 revalidate()
                 repaint()

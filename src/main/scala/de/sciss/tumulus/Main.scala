@@ -43,7 +43,7 @@ object Main  {
     case NonFatal(_) => "?"
   }
 
-  final def name        : String      = "Tumulus"
+  final def name        : String      = "Mexican Tumulus"
   final def debPrefix   : String      = "tumulus-pi"
   final def debSuffix   : String      = ".deb"
   final def version     : String      = buildInfString("version")
@@ -92,6 +92,10 @@ object Main  {
       opt[Unit]('v', "verbose")
         .text("Use verbose logging")
         .action { (_, c) => c.copy(verbose = true) }
+
+      opt[String]("jack-name")
+        .text(s"Jack client name (default: ${default.jackName})")
+        .action { (v, c) => c.copy(jackName = v) }
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
       val config = if (config0.sftpUser.nonEmpty && config0.sftpPass.nonEmpty) config0 else {

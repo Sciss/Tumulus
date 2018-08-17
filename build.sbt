@@ -35,20 +35,21 @@ lazy val root = project.withId(piNameL).in(file("."))
     // mainClass       in assembly := Some(piMain)
     // assemblyJarName in assembly := "CamShot.jar"
     libraryDependencies ++= Seq(
-      "de.sciss"          %% "fileutil"         % "1.1.3",
-      "de.sciss"          %% "numbers"          % "0.2.0",
-      "de.sciss"          %% "kollflitz"        % "0.2.2",
-      "de.sciss"          %% "equal"            % "0.1.2",
-      "de.sciss"          %% "model"            % "0.3.4",
-      "de.sciss"          %% "scalaaudiofile"   % "1.4.7",
-      "de.sciss"          %% "swingplus"        % "0.3.1",
-      "de.sciss"          %% "processor"        % "0.4.1",
-      "de.sciss"          %  "submin"           % "0.2.2",
+      "de.sciss"          %% "fileutil"             % "1.1.3",
+      "de.sciss"          %% "numbers"              % "0.2.0",
+      "de.sciss"          %% "kollflitz"            % "0.2.2",
+      "de.sciss"          %% "equal"                % "0.1.2",
+      "de.sciss"          %% "model"                % "0.3.4",
+      "de.sciss"          %% "scalaaudiofile"       % "1.4.7",
+      "de.sciss"          %% "soundprocesses-views" % "3.21.0",
+      "de.sciss"          %% "swingplus"            % "0.3.1",
+      "de.sciss"          %% "processor"            % "0.4.1",
+      "de.sciss"          %  "submin"               % "0.2.2",
       // "de.sciss"          %  "jrpicam"          % "0.2.0",
       // "com.pi4j"          %  "pi4j-core"        % "1.1",
-      "com.github.scopt"  %% "scopt"            % "3.7.0",
-      "net.leibman"       %% "semverfi"         % "0.2.0",
-      "com.hierynomus"    %  "sshj"             % "0.26.0"
+      "com.github.scopt"  %% "scopt"                % "3.7.0",
+      "net.leibman"       %% "semverfi"             % "0.2.0",
+      "com.hierynomus"    %  "sshj"                 % "0.26.0"
     ),
     mainClass in Compile := Some(piMain),
   )
