@@ -59,9 +59,9 @@ class MainWindow(implicit config: Config) extends Frame { win =>
     cards.show(CardRecorder)
   }
 
-  private[this] val ggQuit = Button("Quit") {
-    Main.exit()
-  }
+//  private[this] val ggQuit = Button("Quit") {
+//    Main.exit()
+//  }
 
   private[this] val ggShutdown = Button("Shutdown") {
     Main.shutdown()

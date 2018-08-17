@@ -30,3 +30,5 @@ can be used to monitor the signal.
 For encoding, `flac` must be installed on the Pi (`sudo apt install flac`).
 
 The Pi is expected to be connected to a 320x480 pixels touch screen, the UI layout is made for this size.
+
+On the laptop, `fswebcam` is used to take photos for testing (`sudo apt install fswebcam`).

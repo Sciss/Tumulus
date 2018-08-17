@@ -118,9 +118,13 @@ object Main  {
 
       opt[Int]("qjackctl-delay")
         .text(s"Delay in seconds to wait after starting qJackCtl (default: ${default.qJackCtlDly})")
-        .validate { v => if (v >= 0) success else failure("hpf must be >= 0") }
+        .validate { v => if (v >= 0) success else failure("qjackctl-delay must be >= 0") }
         .action { (v, c) => c.copy(qJackCtlDly = v) }
 
+      opt[Int]("photo-preview-delay")
+        .text(s"Interval of preview photo updates in seconds (default: ${default.photoPreviewDly})")
+        .validate { v => if (v >= 1) success else failure("photo-preview-delay must be >= 1") }
+        .action { (v, c) => c.copy(photoPreviewDly = v) }
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
       val config = if (config0.sftpUser.nonEmpty && config0.sftpPass.nonEmpty) config0 else {

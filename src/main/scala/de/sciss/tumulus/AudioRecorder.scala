@@ -1,3 +1,16 @@
+/*
+ *  AudioRecorder.scala
+ *  (Tumulus)
+ *
+ *  Copyright (c) 2018 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is published under the GNU Affero General Public License v3+
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.tumulus
 
 import java.text.SimpleDateFormat
@@ -27,25 +40,31 @@ object AudioRecorder {
 
   private final val ReplyRecOk  = "/rec_ok"
   private final val ReplyRecTm  = "/rec_tm"
+
+  def apply()(implicit config: Config): AudioRecorder = new AudioRecorder
 }
-class AudioRecorder(implicit config: Config) extends ModelImpl[AudioRecorder.Update] {
+class AudioRecorder private (implicit config: Config) extends ModelImpl[AudioRecorder.Update] {
   import AudioRecorder._
 
   private[this] val auralSystem = AuralSystem(global = true)
 
   private[this] val ggMeter     = new MicMeterImpl
 
-  private[this] var _hasBooted  = false
+  private[this] var _booting    = false
+  private[this] var _booted     = false
   private[this] var _running    = false
 
   private[this] val fmtFlacName = new SimpleDateFormat("'rec'yyMMdd'_'HHmmss'.flac'", Locale.US)
 
   def meterComponent: Component = ggMeter.component
 
-  private def booted(s: Server)(implicit tx: Txn): Unit = {
+  def booted: Boolean = _booted
+
+  private def bootComplete(s: Server)(implicit tx: Txn): Unit = {
     ggMeter.init(s)
     startAudioLink(s)
     deferTx {
+      _booted = true
       dispatch(Booted)
 //      ggRun.enabled = true
 //      Main.setStatus("Recorder ready.")
@@ -54,8 +73,8 @@ class AudioRecorder(implicit config: Config) extends ModelImpl[AudioRecorder.Upd
 
   def boot(): Unit = {
     requireEDT()
-    if (_hasBooted) return
-    _hasBooted = true
+    if (_booting || _booted) return
+    _booting = true
 
     Main.setStatus("Initializing recorder...")
 
@@ -71,7 +90,7 @@ class AudioRecorder(implicit config: Config) extends ModelImpl[AudioRecorder.Upd
 
     atomic { implicit tx =>
       auralSystem.addClient(new AuralSystem.Client {
-        def auralStarted(s: Server)(implicit tx: Txn): Unit = booted(s)
+        def auralStarted(s: Server)(implicit tx: Txn): Unit = bootComplete(s)
 
         def auralStopped()(implicit tx: Txn): Unit = ()
       })

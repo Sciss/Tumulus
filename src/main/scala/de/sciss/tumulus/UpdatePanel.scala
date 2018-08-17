@@ -112,8 +112,9 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
                     trInstall match {
                       case Success(_) =>
                         Main.setStatus("Updated. Now reboot!")
-                        ggInstallReboot.text = "Reboot"
-                        isReboot = true
+                        ggInstallReboot.text    = "Reboot"
+                        ggInstallReboot.enabled = true
+                        isReboot                = true
 
                       case Failure(ex) =>
                         Main.setStatus(s"Update failed ${ex.getMessage}")

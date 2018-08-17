@@ -14,6 +14,7 @@
 package de.sciss.tumulus
 
 import java.awt.Color
+import java.awt.image.BufferedImage
 
 import de.sciss.tumulus.UI._
 
@@ -25,12 +26,26 @@ class RecorderPanel(w: MainWindow)(implicit config: Config)
 //  type S = InMemory
 //  private[this] val system: S = InMemory()
 
-  private[this] val audioRecorder = new AudioRecorder
+  private[this] val audioRecorder = AudioRecorder()
+  private[this] val photoRecorder = PhotoRecorder()
+
+  private[this] var previewImage: BufferedImage = _
 
   audioRecorder.addListener {
-    case AudioRecorder.Booted =>
-      ggRun.enabled = true
-      Main.setStatus("Recorder ready.")
+    case AudioRecorder.Booted => checkReady()
+  }
+
+  photoRecorder.addListener {
+    case PhotoRecorder.Booted => checkReady()
+    case PhotoRecorder.Preview(img) =>
+      previewImage = img
+      ggCam.repaint()
+  }
+
+  private def checkReady(): Unit = {
+    val ok = audioRecorder.booted && photoRecorder.booted
+    ggRun.enabled = ok
+    if (ok) Main.setStatus("Recorder ready.")
   }
 
   private[this] val ggBack = mkBackPane("Recorder") {
@@ -42,9 +57,15 @@ class RecorderPanel(w: MainWindow)(implicit config: Config)
     opaque        = true
 
     override protected def paintComponent(g: Graphics2D): Unit = {
-      g.setColor(Color.blue)
+      g.setColor(Color.black)
       val p = peer
-      g.fillRect(0, 0, p.getWidth, p.getHeight)
+      val w = p.getWidth
+      val h = p.getHeight
+      g.fillRect(0, 0, w, h)
+      val img = previewImage
+      if (img != null) {
+        g.drawImage(img, 0, 0, w, h, p)
+      }
     }
   }
 
@@ -72,6 +93,8 @@ class RecorderPanel(w: MainWindow)(implicit config: Config)
 
   whenShownAndHidden(this) {
     audioRecorder.boot()
+    photoRecorder.boot()
+
   } {
     ggRun.selected = false
   }
