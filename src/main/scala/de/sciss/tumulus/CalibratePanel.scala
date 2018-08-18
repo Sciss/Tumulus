@@ -19,7 +19,7 @@ import de.sciss.tumulus.UI.mkBackPane
 import scala.swing.{BorderPanel, ButtonGroup, GridPanel}
 import scala.util.Try
 
-class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder)(implicit config: Config)
+class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder) // (implicit config: Config)
   extends BorderPanel {
 
   private[this] val ggBack = mkBackPane(MainWindow.CardCalibrate) {
@@ -28,12 +28,13 @@ class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder)(implicit confi
 
   private[this] val ggPhoto = new PhotoComponent(photoRecorder)
 
-  private def adjustSettings(fun: PhotoSettings => PhotoSettings): Unit = {
+  private def adjustSettings(fun: PhotoSettings => PhotoSettings): PhotoSettings = {
     val set0  = photoRecorder.settings
     val set1  = fun(set0)
     photoRecorder.settings = set1
     val saved = Try(set1.save()).isSuccess
     if (!saved) Main.setStatus("Error: could not save settings!")
+    set1
   }
 
   private[this] val iso = PhotoSettings.StandardIso.map { v =>
@@ -60,8 +61,32 @@ class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder)(implicit confi
     adjustSettings(_.copy(shutterHz = shut))
   }
 
+  private[this] var wbLastClick = System.currentTimeMillis()
+
+  private def showGains(prefix: String, set: PhotoSettings): Unit = {
+    import numbers.Implicits._
+    Main.setStatus(f"$prefix gains: [red: ${set.redGain.ampDb}%1.1f dB, blue: ${set.blueGain.ampDb}%1.1f dB]")
+  }
+
   private[this] val wb = UI.mkButton("White Balance") {
-    Main.setStatus("TODO: White balance")
+    val now = System.currentTimeMillis()
+    if (now - wbLastClick < 1500) {   // "double click"
+      ggPhoto.image.foreach { img =>
+        val gains = WhiteBalance.analyze(img)
+        val newSet = adjustSettings { in =>
+          if (photoRecorder.gainsSupported) {
+            in.copy(redGain = in.redGain * gains.red, blueGain = in.blueGain * gains.blue)
+          } else {
+            in.copy(redGain = gains.red, blueGain = gains.blue)
+          }
+        }
+        showGains("New", newSet)
+      }
+    } else {
+      val currSet = photoRecorder.settings
+      showGains("Current", currSet)
+    }
+    wbLastClick = now
   }
 
   private[this] val ggShutterClose = {

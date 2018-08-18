@@ -25,6 +25,8 @@ import scala.sys.process.Process
 class LaptopPhotoRecorder(var settings: PhotoSettings)(implicit config: Config)
   extends CmdLinePhotoRecorder { rec =>
 
+  def gainsSupported = false
+
   def takePhoto(): BufferedImage = {
     val fTmp = File.createTemp(suffix = ".jpg")
     try {

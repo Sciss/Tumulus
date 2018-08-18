@@ -19,16 +19,18 @@ import java.awt.image.BufferedImage
 import scala.swing.{Component, Dimension, Graphics2D}
 
 class PhotoComponent(rec: PhotoRecorder) extends Component {
-  private[this] var previewImage = Option.empty[BufferedImage]
+  private[this] var _image = Option.empty[BufferedImage]
 
   preferredSize = new Dimension(320, 240)
   opaque        = true
 
   rec.addListener {
     case PhotoRecorder.Preview(img) =>
-      previewImage = Some(img)
+      _image = Some(img)
       if (showing) repaint()
   }
+
+  def image: Option[BufferedImage] = _image
 
   override protected def paintComponent(g: Graphics2D): Unit = {
     g.setColor(Color.black)
@@ -36,7 +38,7 @@ class PhotoComponent(rec: PhotoRecorder) extends Component {
     val w   = p.getWidth
     val h   = p.getHeight
     g.fillRect(0, 0, w, h)
-    previewImage.foreach { img =>
+    _image.foreach { img =>
       val w1  = h * 4/3
       val h1  = w * 3/4
       val wi  = math.min(w, w1)

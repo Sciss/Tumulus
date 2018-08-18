@@ -38,4 +38,6 @@ trait PhotoRecorder extends Model[PhotoRecorder.Update] {
   def boot(): Unit
 
   def booted: Boolean
+
+  def gainsSupported: Boolean
 }

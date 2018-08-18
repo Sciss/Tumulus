@@ -22,13 +22,17 @@ import de.sciss.tumulus.impl.CmdLinePhotoRecorder
 class PiPhotoRecorder(private[this] var _settings: PhotoSettings)(implicit config: Config)
   extends CmdLinePhotoRecorder {
 
+  def gainsSupported = true
+
   private[this] val cam = {
     val c = new RPiCamera
-    c.setAWB(AWB.OFF)
-    c.setQuality(100)
-    c.setRotation(180)
+    c.setWidth    (2592)
+    c.setHeight   (1944)
+    c.setAWB      (AWB.OFF)
+    c.setQuality  ( 100)
+    c.setRotation ( 180)
+    c.setTimeout  (1)
     c.turnOffPreview()
-    c.setTimeout(1)
     c
   }
 
