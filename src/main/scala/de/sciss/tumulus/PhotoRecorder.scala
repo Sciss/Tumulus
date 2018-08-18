@@ -17,16 +17,24 @@ import java.awt.image.BufferedImage
 
 import de.sciss.model.Model
 
+import scala.util.Try
+
 object PhotoRecorder {
   sealed trait Update
   case object Booted extends Update
   case class Preview(img: BufferedImage) extends Update
 
-  def apply()(implicit config: Config): PhotoRecorder =
-    if (config.isLaptop)  new LaptopPhotoRecorder
-    else                  new PiPhotoRecorder
+  def apply()(implicit config: Config): PhotoRecorder = {
+    val set0  = PhotoSettings()
+    val set   = Try(set0.load()).getOrElse(set0)
+//    if (tr.isFailure) println(tr)
+    if (config.isLaptop)  new LaptopPhotoRecorder (set)
+    else                  new PiPhotoRecorder     (set)
+  }
 }
 trait PhotoRecorder extends Model[PhotoRecorder.Update] {
+  var settings: PhotoSettings
+
   def boot(): Unit
 
   def booted: Boolean

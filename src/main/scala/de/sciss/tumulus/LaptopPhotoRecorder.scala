@@ -13,19 +13,32 @@
 
 package de.sciss.tumulus
 
+import java.awt.image.BufferedImage
+import java.io.IOException
+
 import de.sciss.file._
 import de.sciss.tumulus.impl.CmdLinePhotoRecorder
+import javax.imageio.ImageIO
 
 import scala.sys.process.Process
 
-class LaptopPhotoRecorder(implicit config: Config)
+class LaptopPhotoRecorder(var settings: PhotoSettings)(implicit config: Config)
   extends CmdLinePhotoRecorder { rec =>
 
-  def takePhoto(fOut: File): Boolean = {
-    val cmd = "fswebcam"
-    val args = List("-q", "-r", "1280x720", "--crop", "960x720", "--no-banner", "--jpeg", "100", "-D", "1",
-      fOut.path)
-    val code = Process(cmd, args).!
-    code == 0
+  def takePhoto(): BufferedImage = {
+    val fTmp = File.createTemp(suffix = ".jpg")
+    try {
+      val cmd = "fswebcam"
+      val args = List("-q", "-r", "1280x720", "--crop", "960x720", "--no-banner", "--jpeg", "100", "-D", "1",
+        fTmp.path)
+      val code = Process(cmd, args).!
+      if (code == 0) {
+        ImageIO.read(fTmp)
+      } else {
+        throw new IOException(s"$cmd returned with code $code")
+      }
+    } finally {
+      fTmp.delete()
+    }
   }
 }

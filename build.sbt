@@ -4,7 +4,7 @@ lazy val baseName  = "Tumulus"
 lazy val baseNameL = baseName.toLowerCase
 
 lazy val commonSettings = Seq(
-  version      := "0.1.5-SNAPSHOT",
+  version      := "0.1.6-SNAPSHOT",
   description  := "An art project",
   organization := "de.sciss",
   homepage     := Some(url("https://github.com/Sciss/baseName")),
@@ -46,7 +46,7 @@ lazy val root = project.withId(piNameL).in(file("."))
       "de.sciss"          %% "swingplus"            % "0.3.1",
       "de.sciss"          %% "processor"            % "0.4.1",
       "de.sciss"          %  "submin"               % "0.2.2",
-      // "de.sciss"          %  "jrpicam"          % "0.2.0",
+       "de.sciss"         %  "jrpicam"              % "0.2.0",
       // "com.pi4j"          %  "pi4j-core"        % "1.1",
       "com.github.scopt"  %% "scopt"                % "3.7.0",
       "net.leibman"       %% "semverfi"             % "0.2.0",

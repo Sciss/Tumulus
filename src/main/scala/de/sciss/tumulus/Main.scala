@@ -54,6 +54,8 @@ object Main  {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
+  def settingsDir: File = userHome / ".tumulus"
+
   def main(args: Array[String]): Unit = {
     val default = Config()
 
@@ -128,7 +130,7 @@ object Main  {
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
       val config = if (config0.sftpUser.nonEmpty && config0.sftpPass.nonEmpty) config0 else {
-        val f = userHome / ".tumulus" / "sftp.properties"
+        val f = settingsDir / "sftp.properties"
         val p = new Properties
         try {
           val fIn = new FileInputStream(f)

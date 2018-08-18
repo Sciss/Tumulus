@@ -13,17 +13,23 @@
 
 package de.sciss.tumulus
 
-import java.awt.EventQueue
+import java.awt.{Color, EventQueue, Font}
+import java.awt.image.BufferedImage
 
 import de.sciss.swingplus.GridPanel
+import javax.imageio.ImageIO
+import javax.swing.ImageIcon
 
 import scala.swing.event.{ButtonClicked, UIElementHidden, UIElementShown}
 import scala.swing.{Button, Component, Label, TextField, ToggleButton}
 
 object UI {
+  def mkBoldLabel(text: String): Component =
+    new Label(s"<html><body><b>$text</b></body>")
+
   def mkBackPane(card: String)(action: => Unit): Component = {
     val b     = mkButton("Back")(action)
-    val title = new Label(s"<html><body><b>$card</b></body>")
+    val title = mkBoldLabel(card)
     new GridPanel(1, 2) {
       contents += b
       contents += title
@@ -76,4 +82,27 @@ object UI {
 
   def requireEDT(): Unit =
     require(EventQueue.isDispatchThread)
+
+  private def getImageResource(name: String): BufferedImage = {
+    val is = UI.getClass.getResourceAsStream(s"/$name")
+    val image = if (is != null) {
+      val res = ImageIO.read(is)
+      is.close()
+      res
+    } else {
+      val res = new BufferedImage(48, 48, BufferedImage.TYPE_INT_ARGB)
+      val g2  = res.createGraphics()
+      g2.setColor(Color.white)
+      g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 18))
+      g2.drawString("?", 4, 16)
+      g2.dispose()
+      res
+    }
+    image
+  }
+
+  def getIconResource(name: String): ImageIcon = {
+    val image = getImageResource(name)
+    new ImageIcon(image)
+  }
 }

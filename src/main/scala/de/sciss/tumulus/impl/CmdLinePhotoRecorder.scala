@@ -14,9 +14,9 @@
 package de.sciss.tumulus
 package impl
 
-import de.sciss.file._
+import java.awt.image.BufferedImage
+
 import de.sciss.model.impl.ModelImpl
-import javax.imageio.ImageIO
 
 import scala.concurrent.blocking
 import scala.swing.Swing
@@ -30,7 +30,7 @@ abstract class CmdLinePhotoRecorder (implicit config: Config)
 
   def booted: Boolean = _booting
 
-  protected def takePhoto(fOut: File): Boolean
+  protected def takePhoto(): BufferedImage
 
   def boot(): Unit = {
     UI.requireEDT()
@@ -46,23 +46,14 @@ abstract class CmdLinePhotoRecorder (implicit config: Config)
         val previewDlyMS = config.photoPreviewDly * 1000L
         while (true) {
           blocking {
-            val fTmp = File.createTemp(suffix = ".jpg")
-            val tr = Try(takePhoto(fTmp))
+            val tr = Try(takePhoto())
             tr match {
-              case Success(ok) =>
-                if (ok) {
-                  Try {
-                    val img = ImageIO.read(fTmp)
-                    rec.dispatch(PhotoRecorder.Preview(img))
-                  }
-                } else {
-                  Console.err.println("Photo failed (code != 0)")
-                }
+              case Success(img) =>
+                rec.dispatch(PhotoRecorder.Preview(img))
 
               case Failure(ex) =>
                 Console.err.println(s"Photo failed: ${ex.getMessage}")
             }
-            fTmp.delete()
             Thread.sleep(previewDlyMS)
           }
         }

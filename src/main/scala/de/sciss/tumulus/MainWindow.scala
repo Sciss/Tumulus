@@ -18,50 +18,58 @@ import java.awt.event.{ActionEvent, InputEvent, KeyEvent}
 
 import javax.swing.{AbstractAction, JComponent, KeyStroke}
 
-import scala.swing.{BorderPanel, Button, Dimension, Frame, GridPanel, Label, Swing}
+import scala.swing.{BorderPanel, Button, Component, Dimension, Frame, GridPanel, Label, Swing}
+import scala.util.Try
 import scala.util.control.NonFatal
 
 object MainWindow {
-  final val CardHome      = "home"
-  final val CardUpdate    = "update"
-  final val CardRecorder  = "recorder"
+  final val CardHome      = "Home"
+  final val CardUpdate    = "Update"
+  final val CardRecorder  = "Recorder"
+  final val CardCalibrate = "Calibrate"
 }
 class MainWindow(implicit config: Config) extends Frame { win =>
   import MainWindow._
 
   private[this] var fsState = false
 
-//  private[this] val lbVersion = new Label(s"${Main.name} ${Main.fullVersion}")
-  private[this] val lbVersion = new Label(s"<html><body><b>${Main.name}</b></body>")
+  private[this] val lbVersion = UI.mkBoldLabel(Main.name)
 
   private[this] val ggStatus  = UI.mkInfoLabel("Ready.")
 
-//  private[this] val ggTestUpload = Button("Test Upload") {
-//    TestUpload()
-//  }
-
-//  private[this] val ggTestList = Button("Test List") {
-//    import Main.ec
-//    SFTP.list().onComplete {
-//      case Success(xs) => println(xs.mkString("\n"))
-//      case Failure(ex) => ex.printStackTrace()
-//    }
-//  }
-
   private[this] val pUpdate = new UpdatePanel(win)
 
-  private[this] val ggUpdate: Button = Button("Update") {
-    cards.show(CardUpdate)
-//    if (!pUpdate.hasScanned) pUpdate.scan()
+  private def tryMkPanel(id: String, p: => Component): Component =
+    try {
+      p
+    } catch {
+      case NonFatal(ex) =>
+        new GridPanel(0, 1) {
+          contents += new Label(s"Failed to create $id")
+          contents += new Label(ex.getClass.getName)
+          contents += new Label(ex.getMessage)
+        }
+    }
+
+  private[this] val photoRecorderOpt = Try(PhotoRecorder()).toOption
+
+  private[this] val pRecorder   = tryMkPanel(CardRecorder , new RecorderPanel (win, photoRecorderOpt.get))
+  private[this] val pCalibrate  = tryMkPanel(CardCalibrate, new CalibratePanel(win, photoRecorderOpt.get))
+
+  private[this] val pHome = new GridPanel(0, 1)
+
+  private[this] val cards = new CardPanel {
+    add(CardHome, pHome)
   }
 
-  private[this] val ggRecorder: Button = Button("Recorder") {
-    cards.show(CardRecorder)
+  private def mkCardButton(id: String, panel: Component) = {
+    cards.add(id, panel)
+    Button(id)(cards.show(id))
   }
 
-//  private[this] val ggQuit = Button("Quit") {
-//    Main.exit()
-//  }
+  private[this] val ggUpdate    = mkCardButton(CardUpdate   , pUpdate   )
+  private[this] val ggRecorder  = mkCardButton(CardRecorder , pRecorder )
+  private[this] val ggCalibrate = mkCardButton(CardCalibrate, pCalibrate)
 
   private[this] val ggShutdown = Button("Shutdown") {
     Main.shutdown()
@@ -69,38 +77,15 @@ class MainWindow(implicit config: Config) extends Frame { win =>
 
   title = Main.name
 
-//  if (config.fullScreen) peer.setUndecorated(true)
-
-  private[this] val pHome = new GridPanel(0, 1) {
-    contents ++= Seq(
-      lbVersion,
-//      ggTestUpload,
-//      ggTestList,
-      ggRecorder,
-      new Label,
-      ggUpdate,
-//      ggQuit,
-      new Label,
-      ggShutdown
-    )
-  }
-
-  private[this] val pRecorder = try {
-    new RecorderPanel(win)
-  } catch {
-    case NonFatal(ex) =>
-      new GridPanel(0, 1) {
-        contents += new Label("Failed to create recorder")
-        contents += new Label(ex.getClass.getName)
-        contents += new Label(ex.getMessage)
-      }
-  }
-
-  private[this] lazy val cards = new CardPanel {
-    add(CardHome    , pHome     )
-    add(CardUpdate  , pUpdate   )
-    add(CardRecorder, pRecorder )
-  }
+  pHome.contents ++= Seq(
+    lbVersion,
+    ggRecorder,
+    ggCalibrate,
+    new Label,
+    ggUpdate,
+    new Label,
+    ggShutdown
+  )
 
   contents = new BorderPanel {
     add(cards   , BorderPanel.Position.Center)
@@ -132,13 +117,6 @@ class MainWindow(implicit config: Config) extends Frame { win =>
         fullscreen = !fullscreen
       }
     })
-
-//    val closeName = "close"
-//    iMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, Toolkit.getDefaultToolkit.getMenuShortcutKeyMask), closeName)
-//    aMap.put(closeName, new AbstractAction(fsName) {
-//      def actionPerformed(e: ActionEvent): Unit = {
-//      }
-//    })
   }
 
   def fullscreen: Boolean = fsState
@@ -149,11 +127,5 @@ class MainWindow(implicit config: Config) extends Frame { win =>
     val gc = frame.getGraphicsConfiguration
     val sd = gc.getDevice
     sd.setFullScreenWindow(if (value) frame else null)
-//    // "hide" cursor
-//    val cursor = if (value) {
-//      val cursorImg = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB)
-//      frame.getToolkit.createCustomCursor(cursorImg, new Point(0, 0), "blank")
-//    } else null
-//    frame.setCursor(cursor)
   }
 }

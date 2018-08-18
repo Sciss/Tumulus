@@ -8,6 +8,8 @@ Software for an art project. (C)opyright 2018 by Hanns Holger Rutz. All rights r
 [GNU Affero General Public License](http://github.com/Sciss/Tumulus/blob/master/LICENSE) v3+ and comes with absolutely no warranties.
 To contact the author, send an email to `contact at sciss.de`.
 
+Shutter icons by Dávid Gladiš, SK, licensed under Creative Commons CC-BY.
+
 ## building
 
 Builds with sbt against Scala 2.12.
