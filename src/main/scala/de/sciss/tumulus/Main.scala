@@ -179,6 +179,9 @@ object Main  {
     Swing.onEDT {
       val w = new MainWindow
       if (config.fullScreen) {
+        // XXX TODO: testing if this prevents the
+        // bug from mouse events "falling through" to appear
+        w.pack().open()
         w.fullscreen = true
       } else {
         w.centerOnScreen()

@@ -13,8 +13,6 @@
 
 package de.sciss.tumulus
 
-import java.awt.image.BufferedImage
-
 import de.sciss.model.Model
 
 import scala.util.Try
@@ -22,7 +20,7 @@ import scala.util.Try
 object PhotoRecorder {
   sealed trait Update
   case object Booted extends Update
-  case class Preview(img: BufferedImage) extends Update
+  case class Preview(img: MetaImage) extends Update
 
   def apply()(implicit config: Config): PhotoRecorder = {
     val set0  = PhotoSettings()

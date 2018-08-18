@@ -57,9 +57,12 @@ class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder) // (implicit c
     val idx0  = dif.indexOf(dif.min)
     val idx1  = (idx0 + dir).clip(0, dif.size - 1)
     val shut  = PhotoSettings.StandardShutter(idx1)
-    Main.setStatus(s"Shutter is at 1/${shut}s.")
+    showShutter(shut)
     adjustSettings(_.copy(shutterHz = shut))
   }
+
+  private def showShutter(hz: Int): Unit =
+    Main.setStatus(s"Shutter is at 1/${hz}s.")
 
   private[this] var wbLastClick = System.currentTimeMillis()
 
@@ -71,8 +74,8 @@ class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder) // (implicit c
   private[this] val wb = UI.mkButton("White Balance") {
     val now = System.currentTimeMillis()
     if (now - wbLastClick < 1500) {   // "double click"
-      ggPhoto.image.foreach { img =>
-        val gains = WhiteBalance.analyze(img)
+      ggPhoto.image.foreach { meta =>
+        val gains = WhiteBalance.analyze(meta.img)
         val newSet = adjustSettings { in =>
           if (photoRecorder.gainsSupported) {
             in.copy(redGain = in.redGain * gains.red, blueGain = in.blueGain * gains.blue)
@@ -122,6 +125,12 @@ class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder) // (implicit c
 
   UI.whenShown(this) {
     photoRecorder.boot()
+    showShutter(photoRecorder.settings.shutterHz)
+    ggPhoto.enableCropEditing { in =>
+      adjustSettings { set0 =>
+        set0.copy(cropLeft = in.left, cropTop = in.top, cropRight = in.right, cropBottom = in.bottom)
+      }
+    }
   }
 
   // init settings

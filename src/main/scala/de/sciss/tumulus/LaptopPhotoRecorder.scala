@@ -13,7 +13,6 @@
 
 package de.sciss.tumulus
 
-import java.awt.image.BufferedImage
 import java.io.IOException
 
 import de.sciss.file._
@@ -27,7 +26,8 @@ class LaptopPhotoRecorder(var settings: PhotoSettings)(implicit config: Config)
 
   def gainsSupported = false
 
-  def takePhoto(): BufferedImage = {
+  def takePhoto(): MetaImage = {
+    val set  = settings
     val fTmp = File.createTemp(suffix = ".jpg")
     try {
       val cmd = "fswebcam"
@@ -35,7 +35,8 @@ class LaptopPhotoRecorder(var settings: PhotoSettings)(implicit config: Config)
         fTmp.path)
       val code = Process(cmd, args).!
       if (code == 0) {
-        ImageIO.read(fTmp)
+        val img = ImageIO.read(fTmp)
+        MetaImage(img, set)
       } else {
         throw new IOException(s"$cmd returned with code $code")
       }
