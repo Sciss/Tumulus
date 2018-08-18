@@ -21,7 +21,7 @@ import javax.imageio.ImageIO
 import javax.swing.ImageIcon
 
 import scala.swing.event.{ButtonClicked, UIElementHidden, UIElementShown}
-import scala.swing.{Button, Component, Label, TextField, ToggleButton}
+import scala.swing.{Button, Component, Label, Swing, TextField, ToggleButton}
 
 object UI {
   def mkBoldLabel(text: String): Component =
@@ -82,6 +82,10 @@ object UI {
 
   def requireEDT(): Unit =
     require(EventQueue.isDispatchThread)
+
+  def deferIfNeeded(thunk: => Unit): Unit =
+    if (EventQueue.isDispatchThread) thunk
+    else Swing.onEDT(thunk)
 
   private def getImageResource(name: String): BufferedImage = {
     val is = UI.getClass.getResourceAsStream(s"/$name")

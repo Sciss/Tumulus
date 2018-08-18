@@ -13,24 +13,22 @@
 
 package de.sciss.tumulus
 
-import java.text.SimpleDateFormat
-import java.util.{Date, Locale}
-
 import de.sciss.file._
 import de.sciss.lucre.swing.deferTx
 import de.sciss.lucre.synth.{Buffer, Node, Server, Synth, Txn}
 import de.sciss.model.impl.ModelImpl
 import de.sciss.osc
 import de.sciss.processor.Processor
-import de.sciss.synth.{ControlSet, SynthGraph, addToHead, addToTail}
 import de.sciss.synth.io.{AudioFile, AudioFileSpec, AudioFileType, SampleFormat}
 import de.sciss.synth.proc.AuralSystem
 import de.sciss.synth.proc.graph.impl.SendReplyResponder
+import de.sciss.synth.{ControlSet, SynthGraph, addToHead, addToTail}
 import de.sciss.tumulus.UI.requireEDT
+import de.sciss.tumulus.Util.protect
 import de.sciss.tumulus.impl.{MicMeterImpl, ProcImpl}
 
-import scala.concurrent.{blocking, stm}
 import scala.concurrent.stm.Ref
+import scala.concurrent.{Future, Promise, blocking, stm}
 import scala.swing.{Component, Swing}
 import scala.util.{Failure, Success}
 
@@ -53,8 +51,6 @@ class AudioRecorder private (implicit config: Config) extends ModelImpl[AudioRec
   private[this] var _booting    = false
   private[this] var _booted     = false
   private[this] var _running    = false
-
-  private[this] val fmtFlacName = new SimpleDateFormat("'rec'yyMMdd'_'HHmmss'.flac'", Locale.US)
 
   def meterComponent: Component = ggMeter.component
 
@@ -104,24 +100,6 @@ class AudioRecorder private (implicit config: Config) extends ModelImpl[AudioRec
       body(tx)
     }
 
-  def run(): Unit = {
-    requireEDT()
-    if (_running) return
-    _running = true
-
-    val ok = atomic { implicit tx =>
-      auralSystem.serverOption.exists { s =>
-        iterRec(s)
-        true
-      }
-    }
-
-    val msg = if (ok) "Recording..." else "Could not record!"
-    Main.setStatus(msg)
-
-    _running = ok
-  }
-
   private def startAudioLink(s: Server)(implicit tx: Txn): Unit = {
     val gMon = SynthGraph {
       import de.sciss.synth._
@@ -138,7 +116,36 @@ class AudioRecorder private (implicit config: Config) extends ModelImpl[AudioRec
     Synth.playOnce(gMon, nameHint = Some("monitor"))(target = s.defaultGroup, addAction = addToHead)
   }
 
-  private def iterRec(s: Server)(implicit tx: Txn): Unit = {
+  def iterate(baseName: String): Future[Unit] = {
+    requireEDT()
+    if (_running) throw new Exception("Audio recorder still running")
+    _running = true
+
+    import Main.ec
+
+    val futRecOpt: Option[Future[Unit]] = atomic { implicit tx =>
+      auralSystem.serverOption.map { s =>
+        iterRec(baseName, s)
+      }
+    }
+
+    val ok  = futRecOpt.isDefined
+    val msg = if (ok) "Recording sound..." else "Could not record!"
+    Main.setStatus(msg)
+    _running = ok
+
+    val futRec = futRecOpt.getOrElse(Future.failed(new Exception("Audio server not booted")))
+    // Await.result(futRec, Duration.Inf)
+
+    futRec.onComplete { _ =>
+      UI.deferIfNeeded {
+        enableRunning()
+      }
+    }
+    futRec
+  }
+
+  private def iterRec(baseName: String, s: Server)(implicit tx: Txn): Future[Unit] = {
     val fTmp = File.createTemp(suffix = ".irc")
     val buf = Buffer.diskOut(s)(path = fTmp.path, fileType = AudioFileType.IRCAM, sampleFormat = SampleFormat.Float)
     val gRec = SynthGraph {
@@ -167,21 +174,33 @@ class AudioRecorder private (implicit config: Config) extends ModelImpl[AudioRec
     val recTime = new RecTimeResponder(syn)
     recDone.add()
     recTime.add()
-    syn.onEndTxn { implicit tx =>
-      recDone.remove()
-      recTime.remove()
-      buf.dispose()
-      val maxAmp = maxRef.get(tx.peer)
-      if (config.verbose) println(s"MAX AMP: $maxAmp")
-      deferTx {
-        iterNormalize(fTmp, maxAmp)
+
+    val res = Promise[Unit]()
+
+    syn.onEnd {
+      protect(res) {
+        val maxAmp = atomic { implicit tx =>
+          recDone.remove()
+          recTime.remove()
+          buf.dispose()
+          maxRef.get(tx.peer)
+        }
+        if (config.verbose) println(s"MAX AMP: $maxAmp")
+        UI.deferIfNeeded {
+          protect(res) {
+            val fut = iterNormalize(baseName, fTmp, maxAmp)
+            res.tryCompleteWith(fut)
+          }
+        }
       }
     }
+
+    res.future
   }
 
-  private def iterNormalize(fTmp: File, maxAmp: Float): Unit = {
+  private def iterNormalize(baseName: String, fTmp: File, maxAmp: Float): Future[Unit] = {
     UI.requireEDT()
-    Main.setStatus("Normalizing...")
+    Main.setStatus("Normalizing sound...")
 
     val gain  = if (maxAmp > 0f) 1.0f / maxAmp else 1f
     val fNorm = File.createTemp(suffix = ".aif")
@@ -224,15 +243,12 @@ class AudioRecorder private (implicit config: Config) extends ModelImpl[AudioRec
     import Main.ec
     pNorm.start()
 
-    Main.setStatus("Normalizing...")
-
     pNorm.onComplete { trNorm =>
       fTmp.delete()
       Swing.onEDT {
         trNorm match {
-          case Success(_) => iterFLAC(fNorm)
+          case Success(_) =>
           case Failure(ex) =>
-            enableRunning()
             val msg = ex match {
               case Processor.Aborted() => ""
               case _ => s"Normalization failed! ${ex.getMessage}"
@@ -241,14 +257,18 @@ class AudioRecorder private (implicit config: Config) extends ModelImpl[AudioRec
         }
       }
     }
+
+    Util.flatMapEDT(pNorm) { _ =>
+      iterFLAC(baseName, fNorm)
+    }
   }
 
-  private def iterFLAC(fNorm: File): Unit = {
+  private def iterFLAC(baseName: String, fNorm: File): Future[Unit] = {
     UI.requireEDT()
-    Main.setStatus("Compressing...")
+    Main.setStatus("Compressing sound...")
 
     import Main.ec
-    val fOut      = File.tempDir / fmtFlacName.format(new Date)
+    val fOut      = (File.tempDir / baseName).replaceExt("flac")
     val flacArgs  = List("-8", "-s", "-f", "-o", fOut.path, fNorm.path)
     val flacP     = IO.process("flac", flacArgs, timeOutSec = 240)(_ => ())
     flacP.onComplete { trFlac =>
@@ -257,10 +277,8 @@ class AudioRecorder private (implicit config: Config) extends ModelImpl[AudioRec
         trFlac match {
           case Success(_) =>
             if (config.verbose) println(s"Flac file: ${fOut.path}")
-            iterUpload(fOut)
 
           case Failure(ex) =>
-            enableRunning()
             val msg = ex match {
               case Processor.Aborted() => ""
               case _ => s"FLAC compression failed! ${ex.getMessage}"
@@ -269,34 +287,14 @@ class AudioRecorder private (implicit config: Config) extends ModelImpl[AudioRec
         }
       }
     }
-  }
 
-  private def iterUpload(fOut: File): Unit = {
-    UI.requireEDT()
-    val prefix = "Uploading recording..."
-    Main.setStatus(prefix)
-
-    val upP = SFTP.upload(prefix = prefix, source = fOut, dir = "", file = "")
-    import Main.ec
-    upP.onComplete { trUp =>
-      fOut.delete()
-      Swing.onEDT {
-        trUp match {
-          case Success(_) =>
-            Main.setStatus("Upload done.")
-            enableRunning()
-
-          case Failure(ex) =>
-            enableRunning()
-            val msg = ex match {
-              case Processor.Aborted() => ""
-              case _ => s"FLAC compression failed! ${ex.getMessage}"
-            }
-            Main.setStatus(msg)
-        }
-      }
+    Util.flatMapEDT(flacP) { _ =>
+      iterUpload(fOut)
     }
   }
+
+  private def iterUpload(fOut: File): Future[Unit] =
+    Util.uploadWithStatus("sound")(fOut)(_.delete())
 
   private def enableRunning(): Unit =
     _running = false
@@ -309,7 +307,7 @@ class AudioRecorder private (implicit config: Config) extends ModelImpl[AudioRec
     protected val body: Body = {
       case osc.Message(ReplyRecTm, NodeId, 0, rem: Float) =>
         Swing.onEDT {
-          Main.setStatus(s"Recording... -${rem.toInt}s")
+          Main.setStatus(s"Recording sound... -${rem.toInt}s")
         }
     }
 

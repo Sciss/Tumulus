@@ -13,14 +13,25 @@
 
 package de.sciss.tumulus
 
-import de.sciss.tumulus.UI._
+import java.text.SimpleDateFormat
+import java.util.{Date, Locale}
 
-import scala.swing.{BorderPanel, GridPanel}
+import de.sciss.file._
+import de.sciss.tumulus.UI._
+import de.sciss.tumulus.Util._
+import javax.swing.Timer
+
+import scala.concurrent.Future
+import scala.swing.{BorderPanel, GridPanel, Swing}
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 class RecorderPanel(w: MainWindow, photoRecorder: PhotoRecorder)(implicit config: Config)
   extends BorderPanel {
 
+  private[this] val fmtName       = new SimpleDateFormat("'rec'yyMMdd'_'HHmmss", Locale.US)
   private[this] val audioRecorder = AudioRecorder()
+  private[this] var _running      = false
 
   audioRecorder.addListener {
     case AudioRecorder.Booted => checkReady()
@@ -42,11 +53,27 @@ class RecorderPanel(w: MainWindow, photoRecorder: PhotoRecorder)(implicit config
 
   private[this] val ggPhoto = new PhotoComponent(photoRecorder)
 
-  private[this] val ggRun   = mkToggleButton("Run") { sel =>
-    if (sel) {
-      audioRecorder.run()
-    } else {
+  private[this] var intervalCount = 0
 
+  private[this] val intervalTimer: Timer = new Timer(1000, Swing.ActionListener { _ =>
+    if (intervalCount > 0) {
+      intervalCount -= 1
+      if (intervalCount == 0) {
+        intervalTimer.stop()
+        startRunning()
+
+      } else {
+        Main.setStatus(s"Waiting for next iteration... -${intervalCount}s")
+      }
+    }
+  })
+  intervalTimer.setRepeats(true)
+
+  private[this] val ggRun = mkToggleButton("Run") { sel =>
+    if (sel) {
+      startRunning()
+    } else {
+      stopRunning()
     }
   }
   ggRun.enabled = false
@@ -70,5 +97,76 @@ class RecorderPanel(w: MainWindow, photoRecorder: PhotoRecorder)(implicit config
 
   } {
     ggRun.selected = false
+    stopRunning()
   }
+
+  private def stopRunning(): Unit = {
+    intervalTimer.stop()
+    if (!_running) Main.setStatus("")
+  }
+
+  private def startRunning(): Unit = {
+    requireEDT()
+    if (_running) return
+
+    _running = true
+    try {
+      val fut = iterate()
+      import Main.ec
+      fut.onComplete { tr =>
+        Swing.onEDT {
+          _running = false
+          tr match {
+            case Success(_) =>
+              Main.setStatus("Iteration completed.")
+              if (ggRun.selected) {
+                intervalCount = config.recInterval
+                intervalTimer.restart()
+              }
+
+            case Failure(_) =>
+              // Main.setStatus("Iteration failed.")
+          }
+        }
+      }
+
+    } catch {
+      case NonFatal(ex) =>
+        _running = false
+        Main.setStatus(s"Recording failed! ${ex.getMessage}")
+    }
+  }
+
+  private def iterate(): Future[Unit] = {
+    val baseName  = fmtName.format(new Date)
+    val futAudio  = audioRecorder.iterate(baseName)
+    val futPhoto  = flatMapEDT(futAudio) { _ =>
+      ggPhoto.image.fold[Future[Unit]] {
+        Future.successful(())
+      } { meta =>
+        iterUploadPhoto(baseName, meta)
+      }
+    }
+    val futMeta   = flatMapEDT(futPhoto) { _ =>
+      val set = ggPhoto.image.fold(photoRecorder.settings)(_.settings)
+      iterUploadMeta(baseName, set)
+    }
+
+    futMeta
+  }
+
+  private def iterUploadPhoto(baseName: String, meta: MetaImage): Future[Unit] =
+    Util.uploadWithStatus("photo")({
+      val fOut = (File.tempDir / baseName).replaceExt("jpg")
+//      ImageIO.write(meta.img, "jpg", fOut)
+      Util.writeJPEG(meta.img, fOut)
+      fOut
+    })(_.delete())
+
+  private def iterUploadMeta(baseName: String, settings: PhotoSettings): Future[Unit] =
+    Util.uploadWithStatus("meta data")({
+      val fOut = (File.tempDir / baseName).replaceExt("properties")
+      settings.saveAs(fOut)
+      fOut
+    })(_.delete())
 }

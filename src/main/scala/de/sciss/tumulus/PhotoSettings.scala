@@ -22,7 +22,7 @@ import de.sciss.tumulus.Main.settingsDir
 import scala.util.Try
 
 object PhotoSettings {
-  private def f = settingsDir / "photo.properties"
+  private def standardFile: File = settingsDir / "photo.properties"
 
   private final val KeyShutter  = "shutter"
   private final val KeyIso      = "iso"
@@ -45,7 +45,9 @@ case class PhotoSettings(shutterHz: Int = 16, iso: Int = 400, redGain: Float = 1
                          cropTop: Int = 0, cropLeft: Int = 0, cropBottom: Int = 0, cropRight: Int = 0) {
   import PhotoSettings._
 
-  def save(): Unit = {
+  def save(): Unit = saveAs(standardFile)
+
+  def saveAs(f: File): Unit = {
     val p = new Properties
     p.put(KeyShutter, shutterHz .toString)
     p.put(KeyIso    , iso       .toString)
@@ -62,7 +64,9 @@ case class PhotoSettings(shutterHz: Int = 16, iso: Int = 400, redGain: Float = 1
     }
   }
 
-  def load(): PhotoSettings = {
+  def load(): PhotoSettings = loadFrom(standardFile)
+
+  def loadFrom(f: File): PhotoSettings = {
     val p = new Properties
     val fis = new FileInputStream(f)
     try {

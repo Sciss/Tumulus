@@ -31,6 +31,7 @@ package de.sciss.tumulus
   * @param qJackCtl         if `true`, launch qJackCtl upon start
   * @param qJackCtlDly      delay in seconds to wait after starting qJackCtl
   * @param photoPreviewDly  interval of preview photo updates in seconds
+  * @param recInterval      interval between recording/upload iterations in seconds
   */
 final case class Config(isLaptop        : Boolean = false,
                         sftpUser        : String  = "",
@@ -47,7 +48,8 @@ final case class Config(isLaptop        : Boolean = false,
                         audioMonitor    : Boolean = true,
                         qJackCtl        : Boolean = true,
                         qJackCtlDly     : Int     = 6,
-                        photoPreviewDly : Int     = 4
+                        photoPreviewDly : Int     = 4,
+                        recInterval     : Int     = 60
                        ) {
 
   def sftpAddress(path: String): String = s"$sftpUser@$sftpHost:$path"

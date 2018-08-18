@@ -127,6 +127,11 @@ object Main  {
         .text(s"Interval of preview photo updates in seconds (default: ${default.photoPreviewDly})")
         .validate { v => if (v >= 1) success else failure("photo-preview-delay must be >= 1") }
         .action { (v, c) => c.copy(photoPreviewDly = v) }
+
+      opt[Int]("rec-interval")
+        .text(s"Interval between recording/upload iterations in seconds (default: ${default.recInterval})")
+        .validate { v => if (v >= 30) success else failure("rec-interval must be >= 30") }
+        .action { (v, c) => c.copy(recInterval = v) }
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
       val config = if (config0.sftpUser.nonEmpty && config0.sftpPass.nonEmpty) config0 else {
@@ -179,9 +184,10 @@ object Main  {
     Swing.onEDT {
       val w = new MainWindow
       if (config.fullScreen) {
-        // XXX TODO: testing if this prevents the
+        // this did not help prevent the
         // bug from mouse events "falling through" to appear
-        w.pack().open()
+        // w.pack().open()
+
         w.fullscreen = true
       } else {
         w.centerOnScreen()
