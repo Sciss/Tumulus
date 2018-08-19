@@ -13,6 +13,7 @@
 
 package de.sciss.tumulus
 
+import de.sciss.equal.Implicits._
 import de.sciss.numbers
 import de.sciss.tumulus.UI.mkBackPane
 
@@ -144,7 +145,7 @@ class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder) // (implicit c
   // init settings
   {
     val set0    = photoRecorder.settings
-    val isoIdx  = PhotoSettings.StandardIso.indexWhere(_ == set0.iso)
+    val isoIdx  = PhotoSettings.StandardIso.indexWhere(_ === set0.iso)
     if (isoIdx >= 0) bgIso.select(iso(isoIdx))
   }
 }

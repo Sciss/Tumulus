@@ -15,6 +15,7 @@ package de.sciss.tumulus
 
 import java.io.IOException
 
+import de.sciss.equal.Implicits._
 import de.sciss.file._
 import de.sciss.tumulus.impl.CmdLinePhotoRecorder
 import javax.imageio.ImageIO
@@ -34,7 +35,7 @@ class LaptopPhotoRecorder(var settings: PhotoSettings)(implicit config: Config)
       val args = List("-q", "-r", "1280x720", "--crop", "960x720", "--no-banner", "--jpeg", "100", "-D", "1",
         fTmp.path)
       val code = Process(cmd, args).!
-      if (code == 0) {
+      if (code === 0) {
         val img = ImageIO.read(fTmp)
         MetaImage(img, set)
       } else {

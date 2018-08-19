@@ -13,10 +13,11 @@
 
 package de.sciss.tumulus
 
-import java.io.ByteArrayInputStream
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
+import de.sciss.equal.Implicits._
 import de.sciss.file.File
 import de.sciss.kollflitz.ISeq
 import de.sciss.processor.Processor
@@ -90,7 +91,7 @@ object IO {
           }
         }
         val code: Int = Await.result(futAux, Duration(timeOutSec, TimeUnit.SECONDS))
-        if (code == 0) {
+        if (code === 0) {
           mkResult
         } else {
           throw new Exception(s"exit code $code\n\n$sbErr")
@@ -102,14 +103,19 @@ object IO {
     p
   }
 
-  def sudo(cmd: String, args: List[String])(implicit config: Config): Int = {
-    val pb = if (config.isLaptop) {
+  def sudo(cmd: String, args: List[String])(implicit config: Config): (Int, String) = {
+    val pb0 = if (config.isLaptop) {
       val cmd1 = "sudo" :: "-A" :: cmd :: args
       Process(cmd1, Option.empty[File], "SUDO_ASKPASS" -> "/usr/bin/ssh-askpass")
     } else {
       val cmd1 = "sudo" :: cmd :: args
       Process(cmd1)
     }
-    pb.!
+    val os = new ByteArrayOutputStream()
+    val pb = pb0.#>(os)
+    val res = pb.!
+    os.flush()
+    val output = new String(os.toByteArray, StandardCharsets.UTF_8)
+    (res, output)
   }
 }

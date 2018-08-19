@@ -94,7 +94,7 @@ object UI {
       is.close()
       res
     } else {
-      val res = new BufferedImage(48, 48, BufferedImage.TYPE_INT_ARGB)
+      val res = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB)
       val g2  = res.createGraphics()
       g2.setColor(Color.white)
       g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 18))

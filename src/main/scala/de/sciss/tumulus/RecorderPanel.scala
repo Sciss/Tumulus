@@ -16,6 +16,7 @@ package de.sciss.tumulus
 import java.text.SimpleDateFormat
 import java.util.{Date, Locale}
 
+import de.sciss.equal.Implicits._
 import de.sciss.file._
 import de.sciss.tumulus.UI._
 import de.sciss.tumulus.Util._
@@ -58,7 +59,7 @@ class RecorderPanel(w: MainWindow, photoRecorder: PhotoRecorder)(implicit config
   private[this] val intervalTimer: Timer = new Timer(1000, Swing.ActionListener { _ =>
     if (intervalCount > 0) {
       intervalCount -= 1
-      if (intervalCount == 0) {
+      if (intervalCount === 0) {
         intervalTimer.stop()
         startRunning()
 

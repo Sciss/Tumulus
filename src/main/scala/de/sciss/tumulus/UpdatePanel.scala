@@ -13,6 +13,7 @@
 
 package de.sciss.tumulus
 
+import de.sciss.equal.Implicits._
 import de.sciss.file._
 import de.sciss.processor.Processor
 import de.sciss.tumulus.UI._
@@ -99,8 +100,8 @@ class UpdatePanel(w: MainWindow)(implicit config: Config)
               Main.setStatus("Installing update...")
               val pUpd = new ProcImpl[Unit] {
                 protected def body(): Unit = blocking {
-                  val code = IO.sudo("dpkg", List("-i", debFile.path))
-                  if (code != 0) throw new Exception(s"Code $code")
+                  val (code, _) = IO.sudo("dpkg", List("-i", debFile.path))
+                  if (code !== 0) throw new Exception(s"Code $code")
                 }
               }
               updateProc = Some(pUpd)

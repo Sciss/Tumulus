@@ -16,6 +16,7 @@ package de.sciss.tumulus
 import java.awt.Toolkit
 import java.awt.event.{ActionEvent, InputEvent, KeyEvent}
 
+import de.sciss.equal.Implicits._
 import javax.swing.{AbstractAction, JComponent, KeyStroke}
 
 import scala.swing.{BorderPanel, Button, Component, Dimension, Frame, GridPanel, Label, Swing}
@@ -129,7 +130,7 @@ class MainWindow(implicit config: Config) extends Frame { win =>
 
   def fullscreen: Boolean = fsState
 
-  def fullscreen_=(value: Boolean): Unit = if (fsState != value) {
+  def fullscreen_=(value: Boolean): Unit = if (fsState !== value) {
     fsState = value
     val frame = peer
     val gc = frame.getGraphicsConfiguration
