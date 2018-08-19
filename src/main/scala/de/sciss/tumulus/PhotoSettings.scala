@@ -31,7 +31,8 @@ object PhotoSettings {
 
   /** From slow to fast */
   val StandardShutter: List[Int] = List(
-    4, 8, 16, 32, 64, 128, 256
+//    4, 8, 16, 32, 64, 128, 256
+    4, 16, 64, 256, 1024, 4096
   )
 
   val StandardIso: List[Int] = List(100, 200, 400, 800)

@@ -44,6 +44,7 @@ lazy val root = project.withId(piNameL).in(file("."))
       "de.sciss"          %% "soundprocesses-views" % "3.21.0",
       "de.sciss"          %% "swingplus"            % "0.3.1",
       "de.sciss"          %% "processor"            % "0.4.1",
+      "de.sciss"          %  "virtualkeyboard"      % "1.0.0",
       "de.sciss"          %  "submin"               % "0.2.2",
        "de.sciss"         %  "jrpicam"              % "0.2.0",
       // "com.pi4j"          %  "pi4j-core"        % "1.1",

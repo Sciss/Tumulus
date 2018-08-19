@@ -25,6 +25,7 @@ import scala.util.control.NonFatal
 object MainWindow {
   final val CardHome      = "Home"
   final val CardUpdate    = "Update"
+  final val CardWifi      = "Wi-Fi Settings"
   final val CardRecorder  = "Recorder"
   final val CardCalibrate = "Calibrate"
 }
@@ -55,6 +56,7 @@ class MainWindow(implicit config: Config) extends Frame { win =>
 
   private[this] val pRecorder   = tryMkPanel(CardRecorder , new RecorderPanel (win, photoRecorderOpt.get))
   private[this] val pCalibrate  = tryMkPanel(CardCalibrate, new CalibratePanel(win, photoRecorderOpt.get))
+  private[this] val pWifi       = tryMkPanel(CardWifi     , new WifiPanel     (win))
 
   private[this] val pHome = new GridPanel(0, 1)
 
@@ -68,6 +70,7 @@ class MainWindow(implicit config: Config) extends Frame { win =>
   }
 
   private[this] val ggUpdate    = mkCardButton(CardUpdate   , pUpdate   )
+  private[this] val ggWifi      = mkCardButton(CardWifi     , pWifi     )
   private[this] val ggRecorder  = mkCardButton(CardRecorder , pRecorder )
   private[this] val ggCalibrate = mkCardButton(CardCalibrate, pCalibrate)
 
@@ -75,7 +78,12 @@ class MainWindow(implicit config: Config) extends Frame { win =>
     Main.shutdown()
   }
 
-  title = Main.name
+  title     = Main.name
+
+  // leave it resizable because Pi might make window 320x480 including
+  // title bar, so when going full-screen, it won't extend the contents
+  // panel to that size
+//  resizable = false
 
   pHome.contents ++= Seq(
     lbVersion,
@@ -83,7 +91,7 @@ class MainWindow(implicit config: Config) extends Frame { win =>
     ggCalibrate,
     new Label,
     ggUpdate,
-    new Label,
+    ggWifi,
     ggShutdown
   )
 

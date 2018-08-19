@@ -92,6 +92,10 @@ object Main  {
         .text("Run from laptop")
         .action { (_, c) => c.copy(isLaptop = true) }
 
+      opt[Unit] ("keep-energy")
+        .text ("Do not turn off energy saving")
+        .action { (_, c) => c.copy(disableEnergySaving = false) }
+
       opt[Unit]('v', "verbose")
         .text("Use verbose logging")
         .action { (_, c) => c.copy(verbose = true) }
@@ -161,6 +165,18 @@ object Main  {
         }
       }
 
+      if (config.disableEnergySaving && !config.isLaptop) {
+        import sys.process._
+        try {
+          Seq("xset", "s", "off").!
+          Seq("xset", "-dpms").!
+        } catch {
+          case NonFatal(ex) =>
+            Console.err.println("Cannot disable energy settings")
+            ex.printStackTrace()
+        }
+      }
+
       if (!config.verbose) {
         sys.props.put("org.slf4j.simpleLogger.defaultLogLevel", "error")
       }
@@ -187,6 +203,12 @@ object Main  {
         // this did not help prevent the
         // bug from mouse events "falling through" to appear
         // w.pack().open()
+//        val dummy = new javax.swing.JFrame
+//        dummy.setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE)
+//        dummy.setUndecorated(true)
+//        dummy.setSize(320, 480)
+//        dummy.setResizable(false)
+//        dummy.setVisible(true)
 
         w.fullscreen = true
       } else {

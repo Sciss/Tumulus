@@ -41,8 +41,9 @@ object WhiteBalance {
     * @param img        the image to analyze for white balance
     * @param percentile the percentile at which to clip the histogram (default: 5%)
     * @param clip       if `true`, clips the gain values to the interval (0.5, 2.0)
+    * @return   gain parameters if input data is valid, `None` if input image is too bright
     */
-  def analyze(img: BufferedImage, percentile: Double = 0.05, clip: Boolean = true): Gains = {
+  def analyze(img: BufferedImage, percentile: Double = 0.05, clip: Boolean = true): Option[Gains] = {
 //    val low         = new Array[Int](3)
 //    val high        = new Array[Int](3)
     val ratio       = new Array[Float](3)
@@ -72,14 +73,17 @@ object WhiteBalance {
       ch += 1
     }
 
+    val rr    = ratio(0)
     val rg    = ratio(1)
-    val rrN   = ratio(0) / rg
-    val rbN   = ratio(2) / rg
-    import numbers.Implicits._
-    val red   = if (clip) rrN.clip(0.5f, 2.0f) else rrN
-    val blue  = if (clip) rbN.clip(0.5f, 2.0f) else rbN
-
-    Gains(red = red, blue = blue)
+    val rb    = ratio(2)
+    if (rr == 1 || rg == 1 || rb == 1) None else {
+      val rrN   = rr / rg
+      val rbN   = rb / rg
+      import numbers.Implicits._
+      val red   = if (clip) rrN.clip(0.5f, 2.0f) else rrN
+      val blue  = if (clip) rbN.clip(0.5f, 2.0f) else rbN
+      Some(Gains(red = red, blue = blue))
+    }
   }
 
   /* Creates RGB histogram

@@ -16,7 +16,7 @@ package de.sciss.tumulus
 import de.sciss.numbers
 import de.sciss.tumulus.UI.mkBackPane
 
-import scala.swing.{BorderPanel, ButtonGroup, GridPanel}
+import scala.swing.{Alignment, BorderPanel, ButtonGroup, GridPanel, Label}
 import scala.util.Try
 
 class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder) // (implicit config: Config)
@@ -57,12 +57,15 @@ class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder) // (implicit c
     val idx0  = dif.indexOf(dif.min)
     val idx1  = (idx0 + dir).clip(0, dif.size - 1)
     val shut  = PhotoSettings.StandardShutter(idx1)
-    showShutter(shut)
     adjustSettings(_.copy(shutterHz = shut))
+    showShutter()
   }
 
-  private def showShutter(hz: Int): Unit =
-    Main.setStatus(s"Shutter is at 1/${hz}s.")
+  private def showShutter(): Unit = {
+    val hz = photoRecorder.settings.shutterHz
+//    Main.setStatus(s"Shutter is at 1/${hz}s.")
+    lbShutterHz.text = s"1/${hz}s"
+  }
 
   private[this] var wbLastClick = System.currentTimeMillis()
 
@@ -71,19 +74,23 @@ class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder) // (implicit c
     Main.setStatus(f"$prefix gains: [red: ${set.redGain.ampDb}%1.1f dB, blue: ${set.blueGain.ampDb}%1.1f dB]")
   }
 
-  private[this] val wb = UI.mkButton("White Balance") {
+  private[this] val wb = UI.mkButton("White Bal") {
     val now = System.currentTimeMillis()
     if (now - wbLastClick < 1500) {   // "double click"
       ggPhoto.image.foreach { meta =>
-        val gains = WhiteBalance.analyze(meta.img)
-        val newSet = adjustSettings { in =>
-          if (photoRecorder.gainsSupported) {
-            in.copy(redGain = in.redGain * gains.red, blueGain = in.blueGain * gains.blue)
-          } else {
-            in.copy(redGain = gains.red, blueGain = gains.blue)
+        val gainsOpt = WhiteBalance.analyze(meta.img)
+        gainsOpt.fold[Unit] {
+          Main.setStatus("Image too bright! Reduce shutter.")
+        } { gains =>
+          val newSet = adjustSettings { in =>
+            if (photoRecorder.gainsSupported) {
+              in.copy(redGain = in.redGain * gains.red, blueGain = in.blueGain * gains.blue)
+            } else {
+              in.copy(redGain = gains.red, blueGain = gains.blue)
+            }
           }
+          showGains("New", newSet)
         }
-        showGains("New", newSet)
       }
     } else {
       val currSet = photoRecorder.settings
@@ -91,6 +98,8 @@ class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder) // (implicit c
     }
     wbLastClick = now
   }
+
+  private[this] val lbShutterHz = new Label(null, null, Alignment.Center)
 
   private[this] val ggShutterClose = {
     val b = UI.mkButton(null) {
@@ -114,18 +123,17 @@ class CalibratePanel(w: MainWindow, photoRecorder: PhotoRecorder) // (implicit c
 
   add(new GridPanel(0, 1) {
     contents += pIso
-    contents += new GridPanel(1, 2) {
+    contents += new GridPanel(1, 0) {
       contents += wb
-      contents += new GridPanel(1, 2) {
-        contents += ggShutterClose
-        contents += ggShutterOpen
-      }
+      contents += lbShutterHz
+      contents += ggShutterClose
+      contents += ggShutterOpen
     }
   }, BorderPanel.Position.South)
 
   UI.whenShown(this) {
     photoRecorder.boot()
-    showShutter(photoRecorder.settings.shutterHz)
+    showShutter()
     ggPhoto.enableCropEditing { in =>
       adjustSettings { set0 =>
         set0.copy(cropLeft = in.left, cropTop = in.top, cropRight = in.right, cropBottom = in.bottom)
