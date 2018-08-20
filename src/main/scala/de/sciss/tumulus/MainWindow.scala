@@ -29,6 +29,7 @@ object MainWindow {
   final val CardWifi      = "Wi-Fi Settings"
   final val CardRecorder  = "Recorder"
   final val CardCalibrate = "Calibrate"
+  final val CardAdvanced  = "Advanced"
 }
 class MainWindow(implicit config: Config) extends Frame { win =>
   import MainWindow._
@@ -58,6 +59,7 @@ class MainWindow(implicit config: Config) extends Frame { win =>
   private[this] val pRecorder   = tryMkPanel(CardRecorder , new RecorderPanel (win, photoRecorderOpt.get))
   private[this] val pCalibrate  = tryMkPanel(CardCalibrate, new CalibratePanel(win, photoRecorderOpt.get))
   private[this] val pWifi       = tryMkPanel(CardWifi     , new WifiPanel     (win))
+  private[this] val pAdvanced   = tryMkPanel(CardAdvanced , new AdvancedPanel (win))
 
   private[this] val pHome = new GridPanel(0, 1)
 
@@ -74,6 +76,7 @@ class MainWindow(implicit config: Config) extends Frame { win =>
   private[this] val ggWifi      = mkCardButton(CardWifi     , pWifi     )
   private[this] val ggRecorder  = mkCardButton(CardRecorder , pRecorder )
   private[this] val ggCalibrate = mkCardButton(CardCalibrate, pCalibrate)
+  private[this] val ggAdvanced  = mkCardButton(CardAdvanced , pAdvanced )
 
   private[this] val ggShutdown = Button("Shutdown") {
     Main.shutdown()
@@ -92,7 +95,10 @@ class MainWindow(implicit config: Config) extends Frame { win =>
     ggCalibrate,
     new Label,
     ggUpdate,
-    ggWifi,
+    new GridPanel(1, 2) {
+      contents += ggWifi
+      contents += ggAdvanced
+    },
     ggShutdown
   )
 

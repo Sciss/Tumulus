@@ -13,8 +13,11 @@
 
 package de.sciss.tumulus
 
+import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
 
+import de.sciss.equal.Implicits._
+import de.sciss.file._
 import de.sciss.numbers
 import de.sciss.swingplus.ListView
 import de.sciss.swingplus.ListView.IntervalMode
@@ -30,8 +33,13 @@ import scala.swing.{Alignment, BorderPanel, BoxPanel, Button, Component, Dimensi
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
+object WifiPanel {
+  def interface(implicit config: Config): String = if (config.isLaptop) "wlp1s0" else "wlan0"
+}
 class WifiPanel(w: MainWindow)(implicit config: Config)
   extends BorderPanel {
+
+  import WifiPanel.interface
 
   /** @param ssid       network id
     * @param strength   1 (very weak) to 8 (very strong), -1 for unknown
@@ -43,13 +51,131 @@ class WifiPanel(w: MainWindow)(implicit config: Config)
     }
   }
 
+  case class NetworkEntry(ssid: String, priority: Int, lines: List[String]) {
+    def format: String =
+      lines.mkString(
+        s"""network={
+           |	ssid="$ssid"
+           |	priority=$priority
+           |	""".stripMargin, "\n\t", "\n}\n\n")
+  }
+
+  object Supplicant {
+    private val path = "/etc/wpa_supplicant/wpa_supplicant.conf"
+
+    def read(): Supplicant = {
+      val (code, s) = IO.sudo("cat", path :: Nil)
+      if (code == 0) parse(s) else sys.error("Could not read configuration")
+    }
+
+    def remove(ssid: String): Unit = {
+      val before  = read()
+      val now     = before.copy(entries = before.entries.filterNot(_.ssid === ssid))
+      if (now != before) {
+        now.write()
+      }
+    }
+
+    def add(ssid: String, password: String): Unit = {
+      // XXX TODO: how should these be escaped?
+      require (!password.contains("\""), sys.error("Password cannot contain quotation marks"))
+      val before  = read()
+      val rem     = before.copy(entries = before.entries.filterNot(_.ssid === ssid))
+      val pri     = if (rem.entries.isEmpty) 0 else rem.entries.map(_.priority).max + 1
+      val lines   = if (password.isEmpty) {
+        "key_mgmt=NONE" :: Nil
+      } else {
+        s"""psk="$password"""" :: s"""password="$password"""" :: Nil
+      }
+      val e       = NetworkEntry(ssid = ssid, priority = pri, lines = lines)
+      val now     = rem.copy(entries = e :: rem.entries)
+      if (now != before) {
+        now.write()
+      }
+    }
+
+    def parse(s: String, clipPriority: Boolean = true): Supplicant = {
+      val linesB    = List.newBuilder[String]
+      val entriesB  = List.newBuilder[NetworkEntry]
+      var eLinesB   = List.newBuilder[String]
+
+      var wasEmpty  = false
+      var inEntry   = false
+      var ssid      = null: String
+      var priority  = 0
+
+      s.split("\n").foreach { ln =>
+        val t       = ln.trim
+        val isEmpty = t.isEmpty
+        if (!(isEmpty && wasEmpty)) {
+          if (inEntry) {
+            if (t.startsWith("}")) {
+              if (ssid != null) {
+                val eLines  = eLinesB.result()
+                val e       = NetworkEntry(ssid, priority, eLines)
+                entriesB += e
+              }
+              inEntry     = false
+            } else if (t.startsWith("ssid=")) {
+              val i = t.indexOf("\"") + 1
+              val j = t.lastIndexOf("\"")
+              if (j >= i) {
+                ssid = t.substring(i, j)
+              }
+
+            } else if (t.startsWith("priority=")) {
+              Try {
+                priority = t.substring(9).toInt
+                if (clipPriority && priority > 20) priority = 20
+              }
+
+            } else {
+              eLinesB += t
+            }
+
+          } else {
+            if (t.startsWith("network={")) {
+              inEntry   = true
+              eLinesB   = List.newBuilder[String]
+              ssid      = null
+              priority  = 0
+            } else {
+              linesB += ln
+            }
+          }
+          wasEmpty = isEmpty
+        }
+      }
+
+      val lines   = linesB  .result()
+      val entries = entriesB.result()
+      Supplicant(lines, entries)
+    }
+  }
+  case class Supplicant(lines: List[String], entries: List[NetworkEntry]) {
+    def format: String =
+      lines.mkString("", "\n", entries.map(_.format).mkString("\n\n", "", ""))
+
+    def write(): Unit = {
+      val fTmp = File.createTemp()
+      val os = new FileOutputStream(fTmp)
+      try {
+        os.write(format.getBytes("UTF-8"))
+      } finally {
+        os.close()
+      }
+      IO.sudo("cp", fTmp.path :: Supplicant.path :: Nil)
+    }
+  }
+
   private[this] var _scanning     = false
   private[this] var _prepareCon   = false
   private[this] var _prepareSSID  = ""
   private[this] var hasScanned    = false
 
-  private[this] var currentSSID = Option.empty[String]
-  private[this] var available   = List.empty[Network]
+  private[this] var currentSSID   = Option.empty[String]
+  private[this] var contacted     = false
+  private[this] var available     = List.empty[Network]
 
   private[this] val ggBack = mkBackPane("Wi-Fi Settings") {
     w.home()
@@ -85,10 +211,13 @@ class WifiPanel(w: MainWindow)(implicit config: Config)
   }
 
   private[this] val ggDisconnectAbort: Button = mkButton("Disconnect") {
-    if (_prepareCon) abortConnect() else disconnect()
+    if (_prepareCon) {
+      leaveConnect()
+      Main.setStatus("")
+    } else {
+      disconnect()
+    }
   }
-
-  private def interface: String = if (config.isLaptop) "wlp1s0" else "wlan0"
 
   private[this] val ggKeyboard = Component.wrap(new VirtualKeyboard)
   ggKeyboard.preferredSize = new Dimension(320, 160)
@@ -135,10 +264,44 @@ class WifiPanel(w: MainWindow)(implicit config: Config)
     }
   }
 
+  private def tryReconfigureWPA(): Boolean = {
+    import sys.process._
+    val code  = Try(Seq("wpa_cli", "-i", interface, "reconfigure").!).getOrElse(-1)
+    val ok    = code === 0
+    if (!ok) {
+      Main.setStatus("Could not reconfigure WPA client!")
+    }
+    ok
+  }
+
   private def connect(): Unit = {
     if (!_prepareCon || _scanning) return
-    abortConnect()
-    Main.setStatus("NOT YET IMPLEMENTED: Connect")
+    if (config.isLaptop) {
+      Main.setStatus("Not implemented on laptop: Connect")
+      leaveConnect()
+    } else {
+      val pass  = ggPass.text
+      val tr    = Try(Supplicant.add(ssid = _prepareSSID, password = pass))
+      val ok    = tr match {
+        case Success(_) =>
+          tryReconfigureWPA() && {
+            val codeCon = Try {
+              IO.sudo("iw", List("dev", interface, "connect", _prepareSSID))._1
+            } .getOrElse(-1)
+            val okCon = codeCon === 0
+            if (!okCon) {
+              Main.setStatus("Could not connect Wi-Fi!")
+            }
+            okCon
+          }
+
+        case Failure(ex) =>
+          Main.setStatus(s"Could not add network! ${ex.getMessage}")
+          false
+      }
+      leaveConnect()
+      if (ok) scan(delay = 8)
+    }
   }
 
   private def updateAll(): Unit = {
@@ -154,15 +317,39 @@ class WifiPanel(w: MainWindow)(implicit config: Config)
     repaint()
   }
 
-  private def abortConnect(): Unit = {
+  private def leaveConnect(): Unit = {
     _prepareCon = false
     updateAll()
-    Main.setStatus("")
   }
 
   private def disconnect(): Unit = {
     if (_scanning) return
-    Main.setStatus("NOT YET IMPLEMENTED: Disconnect")
+
+    if (config.isLaptop) {
+      Main.setStatus("Not implemented on laptop: Disconnect")
+    } else {
+      currentSSID.foreach { ssid =>
+        val tr = Try(Supplicant.remove(ssid))
+        val ok = tr match {
+          case Success(_) =>
+            tryReconfigureWPA() && {
+              val codeCon = Try {
+                IO.sudo("iw", List("dev", interface, "disconnect"))._1
+              } .getOrElse(-1)
+              val okCon = codeCon === 0
+              if (!okCon) {
+                Main.setStatus("Could not disconnect Wi-Fi!")
+              }
+              okCon
+            }
+
+          case Failure(ex) =>
+            Main.setStatus(s"Could not remove network! ${ex.getMessage}")
+            false
+        }
+        if (ok) scan(delay = 4)
+      }
+    }
   }
 
   private def updateCanConnect(): Unit = {
@@ -186,12 +373,12 @@ class WifiPanel(w: MainWindow)(implicit config: Config)
     } else {
       currentSSID match {
         case Some(id) =>
-          lbConnected.text      = id
-          lbConnected.icon      = iconWifi
+          lbConnected.text  = s" $id${if (contacted) "" else " (no route!)"}"
+          lbConnected.icon  = iconWifi
 
         case None =>
-          lbConnected.icon      = null
-          lbConnected.text      = "Not connected."
+          lbConnected.icon  = null
+          lbConnected.text  = "Not connected."
       }
     }
   }
@@ -202,7 +389,7 @@ class WifiPanel(w: MainWindow)(implicit config: Config)
     updateCanDisconnect()
   }
 
-  def scan(): Unit = {
+  def scan(delay: Int = 0): Unit = {
     UI.requireEDT()
     if (_scanning || _prepareCon) return
 
@@ -212,12 +399,14 @@ class WifiPanel(w: MainWindow)(implicit config: Config)
     Main.setStatus("Scanning for Wi-Fi networks...")
 
     import Main.ec
-    val fut: Future[(List[Network], Option[String])] = Future {
+    val fut: Future[(List[Network], Option[String], Boolean)] = Future {
       val peer = Future {
         blocking {
+          if (delay > 0) Thread.sleep(delay * 1000)
           val _avail    = findAvailableNetworks()
           val _current  = findCurrentSSID()
-          (_avail, _current)
+          val _contact  = _current.isDefined && contactSFTP()
+          (_avail, _current, _contact)
         }
       }
       Await.result(peer, Duration(1, TimeUnit.MINUTES))
@@ -227,9 +416,10 @@ class WifiPanel(w: MainWindow)(implicit config: Config)
         _scanning = false
 
         tr match {
-          case Success((_avail, _current)) =>
+          case Success((_avail, _current, _contact)) =>
             available         = _avail.sortBy(n => (-n.strength, n.ssid.toUpperCase))
             currentSSID       = _current
+            contacted         = _contact
             ggList.items      = available
             Main.setStatus("Scan completed.")
 
@@ -306,5 +496,13 @@ class WifiPanel(w: MainWindow)(implicit config: Config)
       case Success((0, s))  => Some(s.trim)  // remove trailing newline
       case _                => None
     }
+  }
+
+  def contactSFTP(): Boolean = {
+    import sys.process._
+    println("---1")
+    val code = Try(Process("ping", List("-c", "1", "-w", "8", "-I", interface, "-q", config.sftpHost)).!).getOrElse(-1)
+    println("---2")
+    code == 0
   }
 }

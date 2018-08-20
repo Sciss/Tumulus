@@ -20,10 +20,11 @@ import de.sciss.file._
 import de.sciss.model.Model
 import de.sciss.model.impl.ModelImpl
 import de.sciss.submin.Submin
+import javax.swing.{Timer, WindowConstants}
 import semverfi.{SemVersion, Version}
 
 import scala.concurrent.ExecutionContext
-import scala.swing.Swing
+import scala.swing.{Button, Frame, GridPanel, Label, Swing}
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -186,35 +187,82 @@ object Main  {
   }
 
   def run()(implicit config: Config): Unit = {
+    Submin.install(config.dark)
+    Swing.onEDT {
+      var remain = 5
+      val lb = new Label
+
+      def updateLb(): Unit =
+        lb.text = s"Launching in ${remain}s..."
+
+      updateLb()
+
+      def closeFrame(): Unit = {
+        remainT.stop()
+        // do not call 'dispose' because the JVM will exit
+        // when the swing timer is started
+        f.visible = false // f.dispose()
+      }
+
+      lazy val remainT: Timer = new Timer(1000, Swing.ActionListener { _ =>
+        remain -= 1
+        if (remain == 0) {
+          closeFrame()
+          launch(f)
+        } else {
+          updateLb()
+        }
+      })
+
+      lazy val ggAbort: Button = UI.mkButton("Abort") {
+        closeFrame()
+        sys.exit()
+      }
+
+      lazy val f: Frame = new Frame {
+        title = name
+        contents = new GridPanel(2, 1) {
+          contents += lb
+          contents += ggAbort
+          border = Swing.EmptyBorder(16, 48, 16, 48)
+        }
+        peer.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE)
+      }
+
+      f.pack().centerOnScreen()
+      f.open()
+
+      remainT.setRepeats(true)
+      remainT.start()
+    }
+  }
+
+  private def launch(toDispose: Frame)(implicit config: Config): Unit = {
+    def openWindow() (implicit config: Config): Unit = {
+      toDispose.dispose()
+      val w = new MainWindow
+      if (config.fullScreen) {
+        w.fullscreen = true
+      } else {
+        w.centerOnScreen()
+        w.open()
+      }
+    }
+
     if (config.qJackCtl) {
       import scala.sys.process._
       Try(Process("qjackctl", Nil).run())
       val hasDly = config.qJackCtlDly > 0
       if (hasDly) {
         println(s"Waiting ${config.qJackCtlDly}s for qJackCtl to launch...")
-        Thread.sleep((config.qJackCtlDly * 1000).toLong)
-      }
-    }
-
-    Submin.install(config.dark)
-    Swing.onEDT {
-      val w = new MainWindow
-      if (config.fullScreen) {
-        // this did not help prevent the
-        // bug from mouse events "falling through" to appear
-        // w.pack().open()
-//        val dummy = new javax.swing.JFrame
-//        dummy.setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE)
-//        dummy.setUndecorated(true)
-//        dummy.setSize(320, 480)
-//        dummy.setResizable(false)
-//        dummy.setVisible(true)
-
-        w.fullscreen = true
+        val t = new Timer(config.qJackCtlDly * 1000, Swing.ActionListener(_ => openWindow()))
+        t.setRepeats(false)
+        t.start()
       } else {
-        w.centerOnScreen()
-        w.open()
+        openWindow()
       }
+    } else {
+      openWindow()
     }
   }
 
