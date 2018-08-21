@@ -14,10 +14,9 @@
 package de.sciss.tumulus
 
 import de.sciss.tumulus.UI.mkBackPane
-import de.sciss.virtualkeyboard.VirtualKeyboard
 
 import scala.concurrent.{Future, blocking}
-import scala.swing.{Alignment, BorderPanel, BoxPanel, Component, Dimension, FlowPanel, GridPanel, Label, Orientation, Swing, TextField}
+import scala.swing.{BorderPanel, BoxPanel, GridPanel, Orientation, Swing}
 
 class AdvancedPanel(w: MainWindow)(implicit config: Config)
   extends BorderPanel {
@@ -45,16 +44,16 @@ class AdvancedPanel(w: MainWindow)(implicit config: Config)
     }
   }
 
-  private[this] val ggPass = new TextField(12)
-
-  private[this] val ggKeyboard = Component.wrap(new VirtualKeyboard)
-  ggKeyboard.preferredSize = new Dimension(320, 160)
-
-  private[this] val pKeyboard = new BoxPanel(Orientation.Vertical) {
-    contents += new FlowPanel(new Label("Enter password:", null, Alignment.Leading))
-    contents += ggPass
-    contents += ggKeyboard
-  }
+//  private[this] val ggPass = new TextField(12)
+//
+//  private[this] val ggKeyboard = Component.wrap(new VirtualKeyboard)
+//  ggKeyboard.preferredSize = new Dimension(320, 160)
+//
+//  private[this] val pKeyboard = new BoxPanel(Orientation.Vertical) {
+//    contents += new FlowPanel(new Label("Enter password:", null, Alignment.Leading))
+//    contents += ggPass
+//    contents += ggKeyboard
+//  }
 
   private[this] val ggReboot = UI.mkButton("Reboot") {
     Main.reboot()
@@ -72,7 +71,7 @@ class AdvancedPanel(w: MainWindow)(implicit config: Config)
   }, BorderPanel.Position.North)
 
   add(new BoxPanel(Orientation.Vertical) {
-    contents += pKeyboard
+//    contents += pKeyboard
     contents += new GridPanel(1, 2) {
       contents += ggExit
       contents += ggReboot

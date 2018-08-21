@@ -500,9 +500,9 @@ class WifiPanel(w: MainWindow)(implicit config: Config)
 
   def contactSFTP(): Boolean = {
     import sys.process._
-    println("---1")
+//    println("---1")
     val code = Try(Process("ping", List("-c", "1", "-w", "8", "-I", interface, "-q", config.sftpHost)).!).getOrElse(-1)
-    println("---2")
+//    println("---2")
     code == 0
   }
 }

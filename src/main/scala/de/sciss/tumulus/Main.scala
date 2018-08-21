@@ -189,57 +189,62 @@ object Main  {
   def run()(implicit config: Config): Unit = {
     Submin.install(config.dark)
     Swing.onEDT {
-      var remain = 5
-      val lb = new Label
-
-      def updateLb(): Unit =
-        lb.text = s"Launching in ${remain}s..."
-
-      updateLb()
-
-      def closeFrame(): Unit = {
-        remainT.stop()
-        // do not call 'dispose' because the JVM will exit
-        // when the swing timer is started
-        f.visible = false // f.dispose()
-      }
-
-      lazy val remainT: Timer = new Timer(1000, Swing.ActionListener { _ =>
-        remain -= 1
-        if (remain == 0) {
-          closeFrame()
-          launch(f)
-        } else {
-          updateLb()
-        }
-      })
-
-      lazy val ggAbort: Button = UI.mkButton("Abort") {
-        closeFrame()
-        sys.exit()
-      }
-
-      lazy val f: Frame = new Frame {
-        title = name
-        contents = new GridPanel(2, 1) {
-          contents += lb
-          contents += ggAbort
-          border = Swing.EmptyBorder(16, 48, 16, 48)
-        }
-        peer.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE)
-      }
-
-      f.pack().centerOnScreen()
-      f.open()
-
-      remainT.setRepeats(true)
-      remainT.start()
+      if (config.isLaptop) launch(None)
+      else prelude()
     }
   }
 
-  private def launch(toDispose: Frame)(implicit config: Config): Unit = {
+  private def prelude()(implicit config: Config): Unit = {
+    var remain = 5
+    val lb = new Label
+
+    def updateLb(): Unit =
+      lb.text = s"Launching in ${remain}s..."
+
+    updateLb()
+
+    def closeFrame(): Unit = {
+      remainT.stop()
+      // do not call 'dispose' because the JVM will exit
+      // when the swing timer is started
+      f.visible = false // f.dispose()
+    }
+
+    lazy val remainT: Timer = new Timer(1000, Swing.ActionListener { _ =>
+      remain -= 1
+      if (remain == 0) {
+        closeFrame()
+        launch(Some(f))
+      } else {
+        updateLb()
+      }
+    })
+
+    lazy val ggAbort: Button = UI.mkButton("Abort") {
+      closeFrame()
+      sys.exit()
+    }
+
+    lazy val f: Frame = new Frame {
+      title = name
+      contents = new GridPanel(2, 1) {
+        contents += lb
+        contents += ggAbort
+        border = Swing.EmptyBorder(16, 48, 16, 48)
+      }
+      peer.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE)
+    }
+
+    f.pack().centerOnScreen()
+    f.open()
+
+    remainT.setRepeats(true)
+    remainT.start()
+  }
+
+  private def launch(toDispose: Option[Frame])(implicit config: Config): Unit = {
     def openWindow() (implicit config: Config): Unit = {
-      toDispose.dispose()
+      toDispose.foreach(_.dispose())
       val w = new MainWindow
       if (config.fullScreen) {
         w.fullscreen = true
