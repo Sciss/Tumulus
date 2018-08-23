@@ -5,7 +5,7 @@ import javax.imageio.ImageIO
 
 object WBTest {
   def main(args: Array[String]): Unit = {
-    val img   = ImageIO.read(file("/data/temp/test2.jpg"))
+    val img   = ImageIO.read(file("/data/temp/overexposed.jpg"))
     for (i <- 0 until 2) {
       val t0    = System.currentTimeMillis()
       val gains = WhiteBalance.analyze(img)

@@ -230,7 +230,7 @@ object Main  {
       contents = new GridPanel(2, 1) {
         contents += lb
         contents += ggAbort
-        border = Swing.EmptyBorder(16, 48, 16, 48)
+        border = Swing.EmptyBorder(16, 64, 16, 64)
       }
       peer.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE)
     }

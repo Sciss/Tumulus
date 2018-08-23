@@ -4,7 +4,7 @@ lazy val baseName  = "Tumulus"
 lazy val baseNameL = baseName.toLowerCase
 
 lazy val commonSettings = Seq(
-  version      := "0.2.0",
+  version      := "0.3.0",
   description  := "An art project",
   organization := "de.sciss",
   homepage     := Some(url("https://github.com/Sciss/baseName")),

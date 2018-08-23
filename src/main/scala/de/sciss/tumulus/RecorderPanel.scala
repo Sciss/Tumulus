@@ -25,7 +25,6 @@ import javax.swing.Timer
 import scala.concurrent.Future
 import scala.swing.{BorderPanel, GridPanel, Swing}
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
 
 class RecorderPanel(w: MainWindow, photoRecorder: PhotoRecorder)(implicit config: Config)
   extends BorderPanel {
@@ -54,7 +53,8 @@ class RecorderPanel(w: MainWindow, photoRecorder: PhotoRecorder)(implicit config
 
   private[this] val ggPhoto = new PhotoComponent(photoRecorder)
 
-  private[this] var intervalCount = 0
+  private[this] var intervalSilence = 0
+  private[this] var intervalCount   = 0
 
   private[this] val intervalTimer: Timer = new Timer(1000, Swing.ActionListener { _ =>
     if (intervalCount > 0) {
@@ -64,7 +64,11 @@ class RecorderPanel(w: MainWindow, photoRecorder: PhotoRecorder)(implicit config
         startRunning()
 
       } else {
-        Main.setStatus(s"Waiting for next iteration... -${intervalCount}s")
+        if (intervalSilence == 0) {
+          Main.setStatus(s"Waiting for next iteration... -${intervalCount}s")
+        } else {
+          intervalSilence -= 1
+        }
       }
     }
   })
@@ -117,16 +121,14 @@ class RecorderPanel(w: MainWindow, photoRecorder: PhotoRecorder)(implicit config
       fut.onComplete { tr =>
         Swing.onEDT {
           _running = false
-          tr match {
-            case Success(_) =>
-              Main.setStatus("Iteration completed.")
-              if (ggRun.selected) {
-                intervalCount = config.recInterval
-                intervalTimer.restart()
-              }
-
-            case Failure(_) =>
-              // Main.setStatus("Iteration failed.")
+          val isSuccess = tr.isSuccess
+          if (isSuccess) {
+            Main.setStatus("Iteration completed.")
+          }
+          if (ggRun.selected) {
+            intervalSilence = if (isSuccess) 2 else 30
+            intervalCount   = if (isSuccess) config.recInterval else config.errorInterval
+            intervalTimer.restart()
           }
         }
       }
