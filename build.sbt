@@ -25,7 +25,24 @@ lazy val buildInfoSettings = Seq(
   buildInfoOptions += BuildInfoOption.BuildTime
 )
 
-lazy val root = project.withId(piNameL).in(file("."))
+lazy val root = project.withId(baseNameL).in(file("."))
+  .dependsOn(pi, work)
+  .aggregate(pi, work)
+
+lazy val work = project.withId(s"$baseName-work").in(file("work"))
+  .settings(commonSettings)
+  .settings(
+    name := s"$baseName-work",
+    libraryDependencies ++= Seq(
+      "de.sciss" %% "fscape"    % "2.17.0",
+      "de.sciss" %% "fileutil"  % "1.1.3",
+      "de.sciss" %% "numbers"   % "0.2.0",
+      "de.sciss" %% "kollflitz" % "0.2.2",
+      "de.sciss" %% "equal"     % "0.1.2"
+    )
+  )
+
+lazy val pi = project.withId(piNameL).in(file("pi"))
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(JavaAppPackaging, DebianPlugin)
   .settings(commonSettings)
