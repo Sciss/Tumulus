@@ -12,7 +12,7 @@ import scala.concurrent.duration.Duration
 
 object EqualizerTest extends App {
   val fIn     = file("/data/projects/Tumulus/audio_work/ir180906_124741.aif")
-  val fOut    = file("/data/temp/test-filter.aif")
+  val fOut    = file("/data/projects/Tumulus/audio_work/test-filter2.aif")
   val specIn  = AudioFile.readSpec(fIn)
   require (specIn.numChannels === 1)
   import specIn.sampleRate
@@ -25,7 +25,10 @@ object EqualizerTest extends App {
   val binSize   = sampleRate / fftSize
   val binFMin   = (freqMin  / binSize).ceil .toInt
   val binFMax   = (freqMax  / binSize).floor.toInt
-  val maxBoost  = 20.0.dbAmp
+
+  // these two critically determine the severity of the filter
+  val maxBoost    = 30.0.dbAmp  // the higher, the stronger the filter (depth of notches)
+  val smoothSide  = 4           // the higher, the stronger the filter (slope width of notches)
 
   println(s"numFrames = $numFrames, fftSize = $fftSize, binFMix = $binFMin, binFMax = $binFMax")
 
@@ -35,7 +38,10 @@ object EqualizerTest extends App {
     val mag0    = fft.complex.mag
     val magLo   = WindowApply(mag0, size = fftSizeH, index = binFMin)
     val magHi   = WindowApply(mag0, size = fftSizeH, index = binFMax)
-    val mag0Buf = BufferMemory(mag0, fftSize)
+    val mag0Buf = {
+      val mag0Smooth = SlidingPercentile(mag0, len = smoothSide * 2 + 1, frac = 1.0).drop(smoothSide) ++ DC(0).take(smoothSide)
+      BufferMemory(mag0Smooth /* mag0 */, fftSize)
+    }
     val magPeri =
       DC(magLo).take(binFMin) ++
       DC(0.0)  .take(binFMax - binFMin) ++
@@ -77,4 +83,5 @@ object EqualizerTest extends App {
   ctrl.run(g)
   Await.result(ctrl.status, Duration.Inf)
   println("Done.")
+  sys.exit()
 }
