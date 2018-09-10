@@ -54,7 +54,7 @@ final case class Config(isLaptop            : Boolean = false,
                         photoPreviewDly     : Int     = 4,
                         recInterval         : Int     = 60,
                         errorInterval       : Int     = 300
-                       ) {
+                       ) extends ConfigLike {
 
   def sftpAddress(path: String): String = s"$sftpUser@$sftpHost:$path"
 }

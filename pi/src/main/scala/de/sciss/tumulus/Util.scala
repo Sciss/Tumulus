@@ -51,7 +51,8 @@ object Util {
     }
   }
 
-  def uploadWithStatus(tpe: String)(source: => File)(done: File => Unit)(implicit config: Config): Future[Unit] = {
+  def uploadWithStatus(tpe: String)(source: => File)(done: File => Unit)
+                      (implicit config: Config, main: MainLike): Future[Unit] = {
     UI.requireEDT()
     val prefix = s"Uploading $tpe..."
     Main.setStatus(prefix)

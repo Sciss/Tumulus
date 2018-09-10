@@ -4,7 +4,7 @@ lazy val baseName  = "Tumulus"
 lazy val baseNameL = baseName.toLowerCase
 
 lazy val commonSettings = Seq(
-  version      := "0.3.0",
+  version      := "0.4.0-SNAPSHOT",
   description  := "An art project",
   organization := "de.sciss",
   homepage     := Some(url("https://github.com/Sciss/baseName")),
@@ -13,10 +13,10 @@ lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-deprecation", "-unchecked", "-feature", "-Xfuture", "-encoding", "utf8", "-Xlint")
 )
 
-lazy val piMain = "de.sciss.tumulus.Main"
+lazy val piMain     = "de.sciss.tumulus.Main"
+lazy val soundMain  = "de.sciss.tumulus.sound.Main"
 
 lazy val buildInfoSettings = Seq(
-  buildInfoPackage := "de.sciss.tumulus",
   // ---- build info ----
   buildInfoKeys := Seq(name, organization, version, scalaVersion, description,
     BuildInfoKey.map(homepage) { case (k, opt)           => k -> opt.get },
@@ -25,51 +25,98 @@ lazy val buildInfoSettings = Seq(
   buildInfoOptions += BuildInfoOption.BuildTime
 )
 
+lazy val deps = new {
+  val main = new {
+    val audioWidgets    = "1.12.2"
+    val equal           = "0.1.2"
+    val fileUtil        = "1.1.3"
+    val fscape          = "2.17.0"
+    val jRPiCam         = "0.2.0"
+    val kollFlitz       = "0.2.2"
+    val model           = "0.3.4"
+    val numbers         = "0.2.0"
+    val processor       = "0.4.1"
+    val scopt           = "3.7.0"
+    val semVerFi        = "0.2.0"
+    val soundProcesses  = "3.21.0"
+    val sshj            = "0.26.0"
+    val submin          = "0.2.2"
+    val swingPlus       = "0.3.1"
+    val virtualKeyboard = "1.0.0"
+  }
+}
+
 lazy val root = project.withId(baseNameL).in(file("."))
-  .dependsOn(pi, work)
-  .aggregate(pi, work)
+  .dependsOn(pi, sound, work)
+  .aggregate(pi, sound, work)
 
 lazy val work = project.withId(s"$baseName-work").in(file("work"))
+  .dependsOn(common)
   .settings(commonSettings)
   .settings(
     name := s"$baseName-work",
     libraryDependencies ++= Seq(
-      "de.sciss" %% "fscape"    % "2.17.0",
-      "de.sciss" %% "fileutil"  % "1.1.3",
-      "de.sciss" %% "numbers"   % "0.2.0",
-      "de.sciss" %% "kollflitz" % "0.2.2",
-      "de.sciss" %% "equal"     % "0.1.2"
+      "de.sciss" %% "fscape" % deps.main.fscape
+    )
+  )
+
+lazy val common = project.withId(s"$baseNameL-common").in(file("common"))
+  .enablePlugins(BuildInfoPlugin)
+  .settings(buildInfoSettings)
+  .settings(commonSettings)
+  .settings(
+    name := s"$baseName-Common",
+    buildInfoPackage := "de.sciss.tumulus",
+    libraryDependencies ++= Seq(
+      "de.sciss"          %% "equal"      % deps.main.equal,
+      "de.sciss"          %% "fileutil"   % deps.main.fileUtil,
+      "de.sciss"          %% "kollflitz"  % deps.main.kollFlitz,
+      "de.sciss"          %% "numbers"    % deps.main.numbers,
+      "de.sciss"          %% "processor"  % deps.main.processor,
+      "de.sciss"          %% "swingplus"  % deps.main.swingPlus,
+      "com.github.scopt"  %% "scopt"      % deps.main.scopt,
+      "com.hierynomus"    %  "sshj"       % deps.main.sshj,
     )
   )
 
 lazy val pi = project.withId(piNameL).in(file("pi"))
-  .enablePlugins(BuildInfoPlugin)
+  .dependsOn(common)
+//  .enablePlugins(BuildInfoPlugin)
+//  .settings(buildInfoSettings)
   .enablePlugins(JavaAppPackaging, DebianPlugin)
   .settings(commonSettings)
-  .settings(buildInfoSettings)
   .settings(
     name := piName,
-    // mainClass       in assembly := Some(piMain)
-    // assemblyJarName in assembly := "CamShot.jar"
+//    buildInfoPackage := "de.sciss.tumulus",
     libraryDependencies ++= Seq(
-      "de.sciss"          %% "fileutil"             % "1.1.3",
-      "de.sciss"          %% "numbers"              % "0.2.0",
-      "de.sciss"          %% "kollflitz"            % "0.2.2",
-      "de.sciss"          %% "equal"                % "0.1.2",
-      "de.sciss"          %% "model"                % "0.3.4",
-      "de.sciss"          %% "audiowidgets-app"     % "1.12.2",
-      "de.sciss"          %% "soundprocesses-views" % "3.21.0",
-      "de.sciss"          %% "swingplus"            % "0.3.1",
-      "de.sciss"          %% "processor"            % "0.4.1",
-      "de.sciss"          %  "virtualkeyboard"      % "1.0.0",
-      "de.sciss"          %  "submin"               % "0.2.2",
-       "de.sciss"         %  "jrpicam"              % "0.2.0",
-      // "com.pi4j"          %  "pi4j-core"        % "1.1",
-      "com.github.scopt"  %% "scopt"                % "3.7.0",
-      "net.leibman"       %% "semverfi"             % "0.2.0",
-      "com.hierynomus"    %  "sshj"                 % "0.26.0"
+      "de.sciss"    %% "audiowidgets-app"     % deps.main.audioWidgets,
+      "de.sciss"    %  "jrpicam"              % deps.main.jRPiCam,
+      "de.sciss"    %% "model"                % deps.main.model,
+      "net.leibman" %% "semverfi"             % deps.main.semVerFi,
+      "de.sciss"    %% "soundprocesses-views" % deps.main.soundProcesses,
+      "de.sciss"    %  "submin"               % deps.main.submin,
+      "de.sciss"    %  "virtualkeyboard"      % deps.main.virtualKeyboard,
     ),
     mainClass in Compile := Some(piMain),
+  )
+  .settings(piDebianSettings)
+
+lazy val sound = project.withId(soundNameL).in(file("sound"))
+  .dependsOn(common)
+//  .enablePlugins(BuildInfoPlugin)
+//    .settings(buildInfoSettings)
+  .enablePlugins(JavaAppPackaging, DebianPlugin)
+  .settings(commonSettings)
+  .settings(
+    name := soundName,
+//    buildInfoPackage := "de.sciss.tumulus.sound",
+    libraryDependencies ++= Seq(
+      "de.sciss" %% "audiowidgets-app"     % deps.main.audioWidgets,
+      "de.sciss" %% "model"                % deps.main.model,
+      "de.sciss" %% "soundprocesses-core"  % deps.main.soundProcesses,
+      "de.sciss" %  "submin"               % deps.main.submin,
+    ),
+    mainClass in Compile := Some(soundMain),
   )
   .settings(piDebianSettings)
 
@@ -79,6 +126,9 @@ lazy val maintainerHH = "Hanns Holger Rutz <contact@sciss.de>"
 
 lazy val piName  = s"$baseName-Pi"
 lazy val piNameL = piName.toLowerCase
+
+lazy val soundName  = s"$baseName-Sound"
+lazy val soundNameL = soundName.toLowerCase
 
 lazy val piDebianSettings = useNativeZip ++ Seq[Def.Setting[_]](
   executableScriptName /* in Universal */ := piNameL,
@@ -93,6 +143,22 @@ lazy val piDebianSettings = useNativeZip ++ Seq[Def.Setting[_]](
   packageSummary in Debian := description.value,
   packageDescription in Debian :=
     s"""Software for an art installation - $piName.
+       |""".stripMargin
+) ++ commonDebianSettings
+
+lazy val soundDebianSettings = useNativeZip ++ Seq[Def.Setting[_]](
+  executableScriptName /* in Universal */ := soundNameL,
+  scriptClasspath /* in Universal */ := Seq("*"),
+  name        in Debian := soundNameL,
+  packageName in Debian := soundNameL,
+  name        in Linux  := soundNameL,
+  packageName in Linux  := soundNameL,
+  mainClass   in Debian := Some(soundMain),
+  maintainer  in Debian := maintainerHH,
+  debianPackageDependencies in Debian += "java8-runtime",
+  packageSummary in Debian := description.value,
+  packageDescription in Debian :=
+    s"""Software for an art installation - $soundName.
       |""".stripMargin
 ) ++ commonDebianSettings
 

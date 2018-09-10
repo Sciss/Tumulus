@@ -28,7 +28,9 @@ import scala.swing.{Button, Frame, GridPanel, Label, Swing}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-object Main  {
+object Main extends MainLike {
+  implicit def _self: MainLike = this
+
   private object _status extends ModelImpl[String] {
     def fire(s: String): Unit = dispatch(s)
   }

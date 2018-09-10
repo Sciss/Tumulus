@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit
 import de.sciss.equal.Implicits._
 import de.sciss.file._
 import de.sciss.processor.Processor
+import de.sciss.tumulus.Main._self
 import de.sciss.tumulus.UI._
 import de.sciss.tumulus.impl.ProcImpl
 import semverfi.{PreReleaseVersion, SemVersion, Version}

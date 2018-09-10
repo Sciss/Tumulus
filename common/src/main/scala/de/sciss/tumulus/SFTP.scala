@@ -13,7 +13,7 @@
 
 package de.sciss.tumulus
 
-import de.sciss.file._
+import de.sciss.file.File
 import de.sciss.processor.Processor
 import de.sciss.tumulus.IO.ProcessorMonitor
 import de.sciss.tumulus.impl.ProcImpl
@@ -24,6 +24,7 @@ import net.schmizz.sshj.xfer.scp.ScpCommandLine
 import net.schmizz.sshj.xfer.{FileSystemFile, TransferListener}
 
 import scala.concurrent.blocking
+import scala.concurrent.ExecutionContext
 import scala.swing.Swing
 
 object SFTP {
@@ -35,7 +36,7 @@ object SFTP {
     * @param dir        the path on the server or empty string
     * @param timeOutSec the time-out in seconds (default: 30)
     */
-  def list(dir: String = "", timeOutSec: Long = 60)(implicit config: Config): Processor[List[Entry]] = {
+  def list(dir: String = "", timeOutSec: Long = 60)(implicit config: ConfigLike): Processor[List[Entry]] = {
     runProc[List[Entry]] {
       withSSH { ssh =>
         val c = ssh.newSFTPClient()
@@ -51,7 +52,7 @@ object SFTP {
   }
 
   def download(prefix: String, dir: String = "", file: String, timeOutSec: Long = 1800, target: File)
-              (implicit config: Config): ProcessorMonitor[Unit] = {
+              (implicit config: ConfigLike, main: MainLike): ProcessorMonitor[Unit] = {
     runProc[Unit] {
       withSSH { ssh =>
         val c = ssh.newSCPFileTransfer()
@@ -64,7 +65,7 @@ object SFTP {
   }
 
   def upload(prefix: String, source: File, dir: String = "", file: String, timeOutSec: Long = 3600)
-            (implicit config: Config): ProcessorMonitor[Unit] = {
+            (implicit config: ConfigLike, main: MainLike): ProcessorMonitor[Unit] = {
     runProc[Unit] {
       withSSH { ssh =>
         val c = ssh.newSCPFileTransfer()
@@ -83,12 +84,11 @@ object SFTP {
     val p = new ProcImpl[A] {
       protected def body(): A = blocking(block)
     }
-    import Main.ec
-    p.start()
+    p.start()(ExecutionContext.global)
     p
   }
 
-  private def withSSH[A](body: SSHClient => A)(implicit config: Config): A = {
+  private def withSSH[A](body: SSHClient => A)(implicit config: ConfigLike): A = {
     val ssh = new SSHClient
     val kv = if (config.sftpFinger.isEmpty) new PromiscuousVerifier
              else FingerprintVerifier.getInstance(config.sftpFinger)
@@ -102,7 +102,7 @@ object SFTP {
     }
   }
 
-  private class ProgressTracker(prefix: String) extends TransferListener {
+  private class ProgressTracker(prefix: String)(implicit main: MainLike) extends TransferListener {
     def directory(name: String): TransferListener = {
 //      println(s"LOG: started transferring directory `$name")
       this
@@ -118,7 +118,7 @@ object SFTP {
           if (lastProgress < progress) {
             lastProgress = progress
             Swing.onEDT {
-              Main.setStatus(s"$prefix $progress%")
+              main.setStatus(s"$prefix $progress%")
             }
           }
         }

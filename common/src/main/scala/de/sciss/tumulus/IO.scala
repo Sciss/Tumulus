@@ -24,8 +24,8 @@ import de.sciss.processor.Processor
 import de.sciss.tumulus.impl.ProcImpl
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future, blocking}
-import scala.sys.process._
+import scala.concurrent.{Await, ExecutionContext, Future, blocking}
+import scala.sys.process.{Process, ProcessLogger}
 
 object IO {
 //  case class Aborted() extends Exception
@@ -35,7 +35,7 @@ object IO {
   }
 
   def process[A](cmd: String, args: ISeq[String], timeOutSec: Long)
-                (output: String => A)(implicit config: Config): Processor[A] =
+                (output: String => A)(implicit config: ConfigLike): Processor[A] =
     processStringInStringOut(cmd = cmd, args = args, input = "", timeOutSec = timeOutSec)(output)
 
     /** Runs a process with a given string input.
@@ -48,7 +48,7 @@ object IO {
     * @return A processor that can be cancelled to abort the process early
     */
   def processStringInStringOut[A](cmd: String, args: ISeq[String], input: String, timeOutSec: Long)
-                                 (output: String => A)(implicit config: Config): ProcessorMonitor[A] = {
+                                 (output: String => A)(implicit config: ConfigLike): ProcessorMonitor[A] = {
     val sbOut = new StringBuffer()
     processStringIn[A](cmd, args, input = input, timeOutSec = timeOutSec) { s =>
       sbOut.append(s)
@@ -60,7 +60,7 @@ object IO {
   }
 
   def processStringIn[A](cmd: String, args: ISeq[String], input: String, timeOutSec: Long)(lineOut: String => Unit)
-                        (mkResult: => A)(implicit config: Config): ProcessorMonitor[A] = {
+                        (mkResult: => A)(implicit config: ConfigLike): ProcessorMonitor[A] = {
     val pb = Process(cmd, args).#<(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)))
     if (config.verbose) {
       println(args.mkString(s"EXEC: $cmd ", " ", ""))
@@ -98,12 +98,12 @@ object IO {
         }
       }
 
-      start()(Main.ec)
+      start()(ExecutionContext.global)
     }
     p
   }
 
-  def sudo(cmd: String, args: List[String])(implicit config: Config): (Int, String) = {
+  def sudo(cmd: String, args: List[String])(implicit config: ConfigLike): (Int, String) = {
     val pb0 = if (config.isLaptop) {
       val cmd1 = "sudo" :: "-A" :: cmd :: args
       Process(cmd1, Option.empty[File], "SUDO_ASKPASS" -> "/usr/bin/ssh-askpass")

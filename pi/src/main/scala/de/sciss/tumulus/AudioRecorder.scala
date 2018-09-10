@@ -23,6 +23,7 @@ import de.sciss.synth.io.{AudioFile, AudioFileSpec, AudioFileType, SampleFormat}
 import de.sciss.synth.proc.AuralSystem
 import de.sciss.synth.proc.graph.impl.SendReplyResponder
 import de.sciss.synth.{ControlSet, SynthGraph, addToHead, addToTail}
+import de.sciss.tumulus.Main._self
 import de.sciss.tumulus.UI.requireEDT
 import de.sciss.tumulus.Util.protect
 import de.sciss.tumulus.impl.{MicMeterImpl, ProcImpl}
@@ -43,6 +44,8 @@ object AudioRecorder {
 }
 class AudioRecorder private (implicit config: Config) extends ModelImpl[AudioRecorder.Update] {
   import AudioRecorder._
+
+
 
   private[this] val auralSystem = AuralSystem(global = true)
 

@@ -18,6 +18,7 @@ import java.util.{Date, Locale}
 
 import de.sciss.equal.Implicits._
 import de.sciss.file._
+import de.sciss.tumulus.Main._self
 import de.sciss.tumulus.UI._
 import de.sciss.tumulus.Util._
 import javax.swing.Timer
