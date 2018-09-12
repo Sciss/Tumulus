@@ -17,11 +17,12 @@ import java.io.{FileInputStream, FileOutputStream}
 import java.util.Properties
 
 import de.sciss.file._
-import de.sciss.tumulus.Main.settingsDir
 
 import scala.util.Try
 
 object PhotoSettings {
+  def settingsDir: File = userHome / ".tumulus"
+
   private def standardFile: File = settingsDir / "photo.properties"
 
   private final val KeyShutter  = "shutter"

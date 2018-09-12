@@ -17,8 +17,18 @@ object CreateSoundPool {
   }
 
   def minPhaseTest(): Unit = {
+//    val fIn     = file("/data/projects/Tumulus/data/rec180911_142333.wav")
+//    val fIn     = file("/data/projects/Tumulus/data/rec180911_142507.wav")
+//    val fIn     = file("/data/projects/Tumulus/data/rec180911_142640.wav")
+//    val fIn     = file("/data/projects/Tumulus/data/rec180911_142813.wav")
+//    val fIn     = file("/data/projects/Tumulus/data/rec180911_142946.wav")
 //    val fIn     = file("/data/projects/Tumulus/data/rec180911_143120.wav")
-    val fIn     = file("/data/projects/Tumulus/data/rec180911_142946.wav")
+//    val fIn     = file("/data/projects/Tumulus/data/rec180912_141405.wav")
+//    val fIn     = file("/data/projects/Tumulus/data/rec180912_141540.wav")
+//    val fIn     = file("/data/projects/Tumulus/data/rec180912_141714.wav")
+//    val fIn     = file("/data/projects/Tumulus/data/rec180912_141848.wav")
+//    val fIn     = file("/data/projects/Tumulus/data/rec180912_142023.wav")
+    val fIn     = file("/data/projects/Tumulus/data/rec180912_142157.wav")
     val fOut    = file(s"/data/temp/${fIn.base}-min-phase.aif")
     val fut     = mkMinPhase(fIn = fIn, fOut = fOut)
     Await.result(fut, Duration.Inf)
@@ -100,27 +110,23 @@ object CreateSoundPool {
 
       def normalize(in: GE): GE = {
         val max       = RunningMax(in.abs).last
-        //        max.ampDb.poll(0, "max [dB]")
         val headroom  = -0.2.dbAmp
+        val boost     = 18.0.dbAmp
+        val spl       = 55
+        val ref       = 42 // 32
         val gain      = max.reciprocal * headroom
         val buf       = BufferDisk(in)
         val sig0      = buf * gain
-        val spl       = 55
-        val ref       = 32
-        //        val loud      = Loudness(sig0, sampleRate = sr, size = outLen, spl = spl)
         val loud0     = Loudness(sig0, sampleRate = sr, size = sr/4, spl = spl)
         val loud      = RunningMax(loud0).last
-        //        Length(loud).poll(0, "NUM-LOUD")
-//        loud.poll(0, s"LOUD-0 $fOut")
         val buf1      = BufferDisk(in)
         val gain1     = (-loud.max(ref) + ref).dbAmp.pow(0.6) * gain  // 0.7 -- some good guess for phon <-> dB
-        //        gain1.poll(0, s"GAIN $fOut")
         val sig       = buf1 * gain1
-//        val loud00    = Loudness(sig, sampleRate = sr, size = sr/4, spl = spl)
-//        val loud1     = RunningMax(loud00).last
-        //        val loud1     = Loudness(sig, sampleRate = sr, size = outLen, spl = spl)
-//        loud1.poll(0, s"LOUD-1 $fOut")
-        sig
+        val limAtk    = (0.02 * sr).toInt
+        val limRls    = (0.20 * sr).toInt
+        val sigB      = sig * boost
+        val lim       = Limiter(sigB, attack = limAtk, release = limRls, ceiling = headroom)
+        BufferMemory(sigB, limAtk + limRls) * lim
       }
 
       val sig         = normalize(bleach)

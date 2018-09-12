@@ -44,3 +44,38 @@ val test = List(0xaccbe8, 0xafccea, 0xabc9e5, 0xa9cbe7, 0xadcbe7, 0xacc9e7, 0xad
 set(Vector.fill(4)(test).flatten: _*)
 
 clear()
+
+///////////
+
+val afIn = io.AudioFile.openRead("/data/temp/rec180912_142157-colors.aif")
+val colors = try {
+  val buf = afIn.buffer(76)
+  afIn.read(buf)
+  Vector.tabulate(76) { i =>
+    val red   = (buf(0)(i) * 255 + 0.5).toInt
+    val green = (buf(1)(i) * 255 + 0.5).toInt
+    val blue  = (buf(2)(i) * 255 + 0.5).toInt
+    (red << 16) | (green << 8) | blue
+  }  
+} finally {
+  afIn.close()
+}
+
+def normalize(in: Vector[Int]): Vector[Int] = {
+  val maxRed   = in.iterator.map(i => (i >> 16) & 0xFF).max
+  val maxGreen = in.iterator.map(i => (i >>  8) & 0xFF).max
+  val maxBlue  = in.iterator.map(i => (i >>  0) & 0xFF).max
+  val max = math.max(maxRed, math.max(maxGreen, maxBlue))
+  if (max == 0xFF || max == 0x00) in else {
+    val gain = 255.0 / max
+    in.map { i  =>
+      val red   = (((i >> 16) & 0xFF) * gain + 0.5).toInt
+      val green = (((i >>  8) & 0xFF) * gain + 0.5).toInt
+      val blue  = (((i >>  0) & 0xFF) * gain + 0.5).toInt
+      (red << 16) | (green << 8) | blue
+    }
+  }
+}
+
+set(colors: _*)
+set(normalize(colors): _*)
