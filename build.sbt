@@ -58,7 +58,8 @@ lazy val work = project.withId(s"$baseName-work").in(file("work"))
   .settings(
     name := s"$baseName-work",
     libraryDependencies ++= Seq(
-      "de.sciss" %% "fscape" % deps.main.fscape
+      "de.sciss" %% "fscape"                % deps.main.fscape,
+      "de.sciss" %% "soundprocesses-views"  % deps.main.soundProcesses,
     )
   )
 
@@ -113,10 +114,10 @@ lazy val sound = project.withId(soundNameL).in(file("sound"))
     name := soundName,
 //    buildInfoPackage := "de.sciss.tumulus.sound",
     libraryDependencies ++= Seq(
-      "de.sciss" %% "audiowidgets-app"     % deps.main.audioWidgets,
-      "de.sciss" %% "model"                % deps.main.model,
-      "de.sciss" %% "soundprocesses-core"  % deps.main.soundProcesses,
-      "de.sciss" %  "submin"               % deps.main.submin,
+      "de.sciss" %% "fscape"                % deps.main.fscape,
+      "de.sciss" %% "audiowidgets-app"      % deps.main.audioWidgets,
+      "de.sciss" %% "soundprocesses-core"   % deps.main.soundProcesses,
+      "de.sciss" %  "submin"                % deps.main.submin,
     ),
     mainClass in Compile := Some(soundMain),
   )
