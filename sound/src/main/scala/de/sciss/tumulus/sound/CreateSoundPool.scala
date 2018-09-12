@@ -1,6 +1,7 @@
 package de.sciss.tumulus.sound
 
 import de.sciss.file._
+import de.sciss.fscape.stream.Control.Config
 import de.sciss.fscape.{GE, Graph, graph, stream}
 import de.sciss.numbers
 import de.sciss.synth.io.{AudioFile, AudioFileSpec, SampleFormat}
@@ -16,11 +17,13 @@ object CreateSoundPool {
   }
 
   def minPhaseTest(): Unit = {
-    val fIn     = file("/data/projects/Tumulus/data/rec180911_143120.wav")
+//    val fIn     = file("/data/projects/Tumulus/data/rec180911_143120.wav")
+    val fIn     = file("/data/projects/Tumulus/data/rec180911_142946.wav")
     val fOut    = file(s"/data/temp/${fIn.base}-min-phase.aif")
     val fut     = mkMinPhase(fIn = fIn, fOut = fOut)
     Await.result(fut, Duration.Inf)
     println("Done.")
+    sys.exit()
   }
 
   def mkMinPhase(fIn: File, fOut: File): Future[Unit] = {
@@ -73,24 +76,27 @@ object CreateSoundPool {
       val fftOut      = freq.complex.exp
 
       val outW        = Real1FullIFFT (in = fftOut, size = fftSize)
-//      val convSize    = (numFramesIn + numFramesIn - 1).nextPowerOfTwo
-      val convSize    = (numFramesIn + numFramesIn - 1).nextPowerOfTwo * 2
+      val convSize    = (numFramesIn + numFramesIn - 1).nextPowerOfTwo
+//      val convSize    = (numFramesIn + numFramesIn - 1).nextPowerOfTwo * 2
       //      val outWR       = outW.take(numFramesIn) // RotateWindow(outW, fftSize, fftSize/2)
       val outWT       = outW.take(numFramesIn)
       val outWR       = if (!rotate) outWT else RotateWindow(outWT, convSize, convSize/2)
       val conv1       = Real1FFT(outWR, size = numFramesIn, padding = convSize - numFramesIn, mode = 1)
       val conv2       = if (!absSquared) {
-//        conv1.complex.squared.comp
-        conv1.complex.squared.complex * conv1
+        conv1.complex.squared
+//        val isLocalMax  = DetectLocalMax(BufferDisk(conv1).complex.mag, size = convSize/1024)
+//        val isLocalMaxC = isLocalMax zip isLocalMax
+//        BufferDisk(conv1) * BufferMemory(isLocalMaxC, convSize * 2)
+
       } else {
         conv1.complex.absSquared
       }
       val conv3_      = Real1IFFT(conv2, size = convSize, mode = 1)
       val conv3       = if (!rotate) conv3_ else RotateWindow(conv3_, convSize, convSize/2)
-//      val outLen      = numFramesIn + numFramesIn - 1
-      val outLen      = (numFramesIn + numFramesIn - 1) * 2
+      val outLen      = numFramesIn + numFramesIn - 1
+//      val outLen      = (numFramesIn + numFramesIn - 1) * 2
       val convOut     = conv3.take(outLen)
-      val bleach      = Biquad(convOut, b0 = 1, b1 = -1) // Bleach(convOut, filterLen = 512, feedback =  0.001, filterClip = 16) - convOut
+      val bleach      = Biquad(convOut, b0 = 1, b1 = -0.95) // Bleach(convOut, filterLen = 512, feedback =  0.001, filterClip = 16) - convOut
 
       def normalize(in: GE): GE = {
         val max       = RunningMax(in.abs).last
@@ -105,24 +111,27 @@ object CreateSoundPool {
         val loud0     = Loudness(sig0, sampleRate = sr, size = sr/4, spl = spl)
         val loud      = RunningMax(loud0).last
         //        Length(loud).poll(0, "NUM-LOUD")
-        loud.poll(0, s"LOUD-0 $fOut")
-        val buf1      = BufferDisk(buf)
+//        loud.poll(0, s"LOUD-0 $fOut")
+        val buf1      = BufferDisk(in)
         val gain1     = (-loud.max(ref) + ref).dbAmp.pow(0.6) * gain  // 0.7 -- some good guess for phon <-> dB
         //        gain1.poll(0, s"GAIN $fOut")
         val sig       = buf1 * gain1
-        val loud00    = Loudness(sig, sampleRate = sr, size = sr/4, spl = spl)
-        val loud1     = RunningMax(loud00).last
+//        val loud00    = Loudness(sig, sampleRate = sr, size = sr/4, spl = spl)
+//        val loud1     = RunningMax(loud00).last
         //        val loud1     = Loudness(sig, sampleRate = sr, size = outLen, spl = spl)
-        loud1.poll(0, s"LOUD-1 $fOut")
+//        loud1.poll(0, s"LOUD-1 $fOut")
         sig
       }
 
       val sig         = normalize(bleach)
 
       val specOut     = AudioFileSpec(numChannels = 1, sampleRate = sr, sampleFormat = SampleFormat.Int24)
-      AudioFileOut(sig, fOut, specOut)
+      /* val framesWritten = */ AudioFileOut(sig, fOut, specOut)
+//      framesWritten.poll(sr, "framesWritten")
     }
 
+    val cfg = Config()
+    cfg.useAsync = false
     val ctl = stream.Control()
     ctl.run(g)
     ctl.status

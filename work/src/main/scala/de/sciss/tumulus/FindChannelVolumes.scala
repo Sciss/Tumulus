@@ -18,7 +18,7 @@ object FindChannelVolumes {
   final val MaxAmpDb    = -12.0
   final val MinAmpDb    = -36.0
 
-  val data0 = List(-32.5, -36.0, -30.6, -36.0, -36.0, -36.0, -36.0, -36.0, -36.0, -36.0, -36.0, -36.0)
+  val data0 = List(-24.0, -24.0, -24.0, -24.0, -24.0, -24.0, -20.0, -18.0, -18.0, -20.0, -18.0, -20.0)
 
   def main(args: Array[String]): Unit = {
     run()
@@ -108,7 +108,8 @@ object FindChannelVolumes {
 
   def booted(s: Server)(implicit tx: Txn): Unit = {
     val buf = Buffer(s)(numFrames = 529200)
-    buf.read("/data/projects/Tumulus/audio_work/MinPhaseNorm.aif")
+//    buf.read("/data/projects/Tumulus/audio_work/MinPhaseNorm.aif")
+    buf.read("/data/projects/Tumulus/audio_work/rec180911_142946-min-phaseLim.aif")
     val g = SynthGraph {
       import de.sciss.synth.Ops.stringToControl
       import ugen._
