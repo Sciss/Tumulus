@@ -15,6 +15,7 @@ lazy val commonSettings = Seq(
 
 lazy val piMain     = "de.sciss.tumulus.Main"
 lazy val soundMain  = "de.sciss.tumulus.sound.Main"
+lazy val lightMain  = "de.sciss.tumulus.light.Main"
 
 lazy val buildInfoSettings = Seq(
   // ---- build info ----
@@ -36,6 +37,7 @@ lazy val deps = new {
     val model           = "0.3.4"
     val numbers         = "0.2.0"
     val processor       = "0.4.1"
+    val scalaOSC        = "1.1.6"
     val scopt           = "3.7.0"
     val semVerFi        = "0.2.0"
     val soundProcesses  = "3.21.0"
@@ -47,8 +49,8 @@ lazy val deps = new {
 }
 
 lazy val root = project.withId(baseNameL).in(file("."))
-  .dependsOn(pi, sound, work)
-  .aggregate(pi, sound, work)
+  .dependsOn(pi, sound, light, work)
+  .aggregate(pi, sound, light, work)
 
 lazy val work = project.withId(s"$baseName-work").in(file("work"))
   .dependsOn(common)
@@ -118,7 +120,23 @@ lazy val sound = project.withId(soundNameL).in(file("sound"))
     ),
     mainClass in Compile := Some(soundMain),
   )
-  .settings(piDebianSettings)
+  .settings(soundDebianSettings)
+
+lazy val light = project.withId(lightNameL).in(file("light"))
+  .dependsOn(common)
+  //  .enablePlugins(BuildInfoPlugin)
+  //    .settings(buildInfoSettings)
+  .enablePlugins(JavaAppPackaging, DebianPlugin)
+  .settings(commonSettings)
+  .settings(
+    name := lightName,
+    //    buildInfoPackage := "de.sciss.tumulus.light",
+    libraryDependencies ++= Seq(
+      "de.sciss" %% "scalaosc" % deps.main.scalaOSC,
+    ),
+    mainClass in Compile := Some(lightMain),
+  )
+  .settings(lightDebianSettings)
 
 // ---- debian package ----
 
@@ -129,6 +147,9 @@ lazy val piNameL = piName.toLowerCase
 
 lazy val soundName  = s"$baseName-Sound"
 lazy val soundNameL = soundName.toLowerCase
+
+lazy val lightName  = s"$baseName-Light"
+lazy val lightNameL = lightName.toLowerCase
 
 lazy val piDebianSettings = useNativeZip ++ Seq[Def.Setting[_]](
   executableScriptName /* in Universal */ := piNameL,
@@ -159,6 +180,23 @@ lazy val soundDebianSettings = useNativeZip ++ Seq[Def.Setting[_]](
   packageSummary in Debian := description.value,
   packageDescription in Debian :=
     s"""Software for an art installation - $soundName.
+       |""".stripMargin
+) ++ commonDebianSettings
+
+lazy val lightDebianSettings = useNativeZip ++ Seq[Def.Setting[_]](
+  javaOptions in Universal += "-Djava.library.path=/usr/share/tumulus-light/lib/",
+  executableScriptName /* in Universal */ := lightNameL,
+  scriptClasspath /* in Universal */ := Seq("*"),
+  name        in Debian := lightNameL,
+  packageName in Debian := lightNameL,
+  name        in Linux  := lightNameL,
+  packageName in Linux  := lightNameL,
+  mainClass   in Debian := Some(lightMain),
+  maintainer  in Debian := maintainerHH,
+  debianPackageDependencies in Debian += "java8-runtime",
+  packageSummary in Debian := description.value,
+  packageDescription in Debian :=
+    s"""Software for an art installation - $lightName.
       |""".stripMargin
 ) ++ commonDebianSettings
 

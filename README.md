@@ -14,7 +14,9 @@ Shutter icons by Dávid Gladiš, SK, Wifi icon by Adrien Coquet, FR, all license
 
 Builds with sbt against Scala 2.12.
 
-## preparation
+## "Tumulus-Pi" (Recorder)
+
+### preparation
 
 File `~/.tumulus/sftp.properties` should exist and have entries for `user` and `pass` (`key=value`).
 Application should be first installed via `sudo dpkg -i tumulus-pi_version_all.deb`. It may then
@@ -34,3 +36,9 @@ For encoding, `flac` must be installed on the Pi (`sudo apt install flac`).
 The Pi is expected to be connected to a 320x480 pixels touch screen, the UI layout is made for this size.
 
 On the laptop, `fswebcam` is used to take photos for testing (`sudo apt install fswebcam`).
+
+## Tumulus-Light
+
+### preparation
+
+The JNI library `librpiws28114j.so` must be installed.
