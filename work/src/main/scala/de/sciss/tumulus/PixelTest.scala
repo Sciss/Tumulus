@@ -11,13 +11,15 @@ import scala.concurrent.duration.Duration
 object PixelTest extends App {
   def any2stringadd: Any = ()
 
-  val fIn       = file("/data/projects/Tumulus/data/rec180912_142157.jpg")
+//  val fIn       = file("/data/projects/Tumulus/data/rec180912_142157.jpg")
+  val fIn       = file("/data/projects/Tumulus/data/rec180912_181311.jpg")
 //  val fIn       = file("/data/projects/Tumulus/data/rec180821_081752.jpg")
   val fProp     = fIn.replaceExt("properties")
   val set       = PhotoSettings().loadFrom(fProp)
   val fOutImg   = file("/data/temp") / s"${fIn.base}-crop.png"
   val fOutColor = file("/data/temp") / s"${fIn.base}-colors.aif"
 
+  val writeCrop = true
   val widthIn   = 2592
   val heightIn  = 1944
   val widthOut  = widthIn   - (set.cropLeft + set.cropRight )
@@ -43,7 +45,7 @@ object PixelTest extends App {
     val above   = BufferMemory(lum, imageSizeOut) > thresh
 
 //    val filter  = Latch(BufferMemory(crop, imageSizeOut), above)
-//    val specOut = ImageFile.Spec(width = widthOut, height = heightOut, numChannels = 3)
+    val specOut = ImageFile.Spec(width = widthOut, height = heightOut, numChannels = 3)
 //    ImageFileOut(filter /* crop */, fOut, specOut)
 
     val filter  = FilterSeq(BufferMemory(crop, imageSizeOut), above)
@@ -52,7 +54,9 @@ object PixelTest extends App {
     val filterLen = Length(filter.out(0)).max(76 * 2)
 //    filterLen.poll(0, "filterLen")
     val filterPad = BufferMemory(filter, imageSizeOut) ++ DC(Seq[GE](0.5, 0.5, 0.5)).take(76 * 2)
-//    ImageFileOut(filterPad /* crop */, fOutImg, specOut)
+    if (writeCrop) {
+      ImageFileOut(filterPad /* crop */, fOutImg, specOut)
+    }
 
     val period  = (filterLen / 76).floor
     val slid    = SlidingPercentile(filterPad, len = period)

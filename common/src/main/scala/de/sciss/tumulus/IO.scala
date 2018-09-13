@@ -30,6 +30,9 @@ import scala.sys.process.{Process, ProcessLogger}
 object IO {
 //  case class Aborted() extends Exception
 
+  val defaultLightHost: String  = "192.168.0.25"
+  val defaultLightPort: Int     = 0x4C69
+
   def settingsDir: File = userHome / ".tumulus"
 
   trait ProcessorMonitor[A] extends Processor[A] {

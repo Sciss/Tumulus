@@ -28,23 +28,25 @@ lazy val buildInfoSettings = Seq(
 
 lazy val deps = new {
   val main = new {
-    val audioWidgets    = "1.12.2"
-    val equal           = "0.1.2"
-    val fileUtil        = "1.1.3"
-    val fscape          = "2.17.2"
-    val jRPiCam         = "0.2.0"
-    val kollFlitz       = "0.2.2"
-    val model           = "0.3.4"
-    val numbers         = "0.2.0"
-    val processor       = "0.4.1"
-    val scalaOSC        = "1.1.6"
-    val scopt           = "3.7.0"
-    val semVerFi        = "0.2.0"
-    val soundProcesses  = "3.21.0"
-    val sshj            = "0.26.0"
-    val submin          = "0.2.2"
-    val swingPlus       = "0.3.1"
-    val virtualKeyboard = "1.0.0"
+    val akka                = "2.4.20" // N.B. should match with FScape's
+    val audioWidgets        = "1.12.2"
+    val equal               = "0.1.2"
+    val fileUtil            = "1.1.3"
+    val fscape              = "2.17.2"
+    val jRPiCam             = "0.2.0"
+    val kollFlitz           = "0.2.2"
+    val model               = "0.3.4"
+    val numbers             = "0.2.0"
+    val processor           = "0.4.1"
+    val scalaColliderSwing  = "1.39.0"
+    val scalaOSC            = "1.1.6"
+    val scopt               = "3.7.0"
+    val semVerFi            = "0.2.0"
+    val soundProcesses      = "3.21.0"
+    val sshj                = "0.26.0"
+    val submin              = "0.2.2"
+    val swingPlus           = "0.3.1"
+    val virtualKeyboard     = "1.0.0"
   }
 }
 
@@ -84,8 +86,6 @@ lazy val common = project.withId(s"$baseNameL-common").in(file("common"))
 
 lazy val pi = project.withId(piNameL).in(file("pi"))
   .dependsOn(common)
-//  .enablePlugins(BuildInfoPlugin)
-//  .settings(buildInfoSettings)
   .enablePlugins(JavaAppPackaging, DebianPlugin)
   .settings(commonSettings)
   .settings(
@@ -106,18 +106,17 @@ lazy val pi = project.withId(piNameL).in(file("pi"))
 
 lazy val sound = project.withId(soundNameL).in(file("sound"))
   .dependsOn(common)
-//  .enablePlugins(BuildInfoPlugin)
-//    .settings(buildInfoSettings)
   .enablePlugins(JavaAppPackaging, DebianPlugin)
   .settings(commonSettings)
   .settings(
     name := soundName,
-//    buildInfoPackage := "de.sciss.tumulus.sound",
     libraryDependencies ++= Seq(
-      "de.sciss" %% "fscape"                % deps.main.fscape,
-      "de.sciss" %% "audiowidgets-app"      % deps.main.audioWidgets,
-      "de.sciss" %% "soundprocesses-core"   % deps.main.soundProcesses,
-      "de.sciss" %  "submin"                % deps.main.submin,
+      "de.sciss"          %% "fscape"                   % deps.main.fscape,
+      "de.sciss"          %% "audiowidgets-app"         % deps.main.audioWidgets,
+      "de.sciss"          %% "soundprocesses-views"     % deps.main.soundProcesses,
+      "de.sciss"          %% "scalacolliderswing-core"  % deps.main.scalaColliderSwing,
+      "de.sciss"          %  "submin"                   % deps.main.submin,
+      "com.typesafe.akka" %% "akka-actor"               % deps.main.akka,
     ),
     mainClass in Compile := Some(soundMain),
   )
@@ -125,13 +124,10 @@ lazy val sound = project.withId(soundNameL).in(file("sound"))
 
 lazy val light = project.withId(lightNameL).in(file("light"))
   .dependsOn(common)
-  //  .enablePlugins(BuildInfoPlugin)
-  //    .settings(buildInfoSettings)
   .enablePlugins(JavaAppPackaging, DebianPlugin)
   .settings(commonSettings)
   .settings(
     name := lightName,
-    //    buildInfoPackage := "de.sciss.tumulus.light",
     libraryDependencies ++= Seq(
       "de.sciss" %% "scalaosc" % deps.main.scalaOSC,
     ),

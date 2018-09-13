@@ -1,29 +1,104 @@
-/*
- *  UI.scala
- *  (Tumulus)
- *
- *  Copyright (c) 2018 Hanns Holger Rutz. All rights reserved.
- *
- *  This software is published under the GNU Affero General Public License v3+
- *
- *
- *  For further information, please contact Hanns Holger Rutz at
- *  contact@sciss.de
- */
-
 package de.sciss.tumulus
 
-import java.awt.{Color, EventQueue, Font}
 import java.awt.image.BufferedImage
+import java.awt.{Color, EventQueue, Font}
 
 import de.sciss.swingplus.GridPanel
 import javax.imageio.ImageIO
-import javax.swing.ImageIcon
+import javax.swing.{ImageIcon, Timer, WindowConstants}
 
 import scala.swing.event.{ButtonClicked, UIElementHidden, UIElementShown}
-import scala.swing.{Button, Component, Label, Swing, TextField, ToggleButton}
+import scala.swing.{Button, Component, Frame, Label, Swing, TextField, ToggleButton}
+import scala.util.Try
 
 object UI {
+  def launchUIWithJack(mkWindow: => Unit)(implicit config: ConfigLike, main: MainLike): Unit = {
+    //    Submin.install(config.dark)
+    Swing.onEDT {
+      if (config.isLaptop) launch(mkWindow, None)
+      else prelude(mkWindow)
+    }
+  }
+
+  private def launch(mkWindow: => Unit, toDispose: Option[Frame])(implicit config: ConfigLike): Unit = {
+    def openWindow()(implicit config: ConfigLike): Unit = {
+      toDispose.foreach(_.dispose())
+      mkWindow
+    }
+
+    if (config.qJackCtl) {
+      import scala.sys.process._
+      Try(Process("qjackctl", Nil).run())
+      val hasDly = config.qJackCtlDly > 0
+      if (hasDly) {
+        println(s"Waiting ${config.qJackCtlDly}s for qJackCtl to launch...")
+        val th = new Thread {
+          override def run(): Unit = synchronized(wait())
+        }
+        th.start()
+        val t = new Timer(config.qJackCtlDly * 1000, Swing.ActionListener { _ =>
+          openWindow()
+          th.synchronized(th.notify())
+        })
+        t.setRepeats(false)
+        t.start()
+
+      } else {
+        openWindow()
+      }
+    } else {
+      openWindow()
+    }
+  }
+
+  private def prelude(mkWindow: => Unit)(implicit config: ConfigLike, main: MainLike): Unit = {
+    var remain = 5
+    val lb = new Label
+
+    def updateLb(): Unit =
+      lb.text = s"Launching in ${remain}s..."
+
+    updateLb()
+
+    def closeFrame(): Unit = {
+      remainT.stop()
+      // do not call 'dispose' because the JVM will exit
+      // when the swing timer is started
+      f.visible = false // f.dispose()
+    }
+
+    lazy val remainT: Timer = new Timer(1000, Swing.ActionListener { _ =>
+      remain -= 1
+      if (remain == 0) {
+        closeFrame()
+        launch(mkWindow, Some(f))
+      } else {
+        updateLb()
+      }
+    })
+
+    lazy val ggAbort: Button = UI.mkButton("Abort") {
+      closeFrame()
+      sys.exit()
+    }
+
+    lazy val f: Frame = new Frame {
+      title = main.name
+      contents = new GridPanel(2, 1) {
+        contents += lb
+        contents += ggAbort
+        border = Swing.EmptyBorder(16, 64, 16, 64)
+      }
+      peer.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE)
+    }
+
+    f.pack().centerOnScreen()
+    f.open()
+
+    remainT.setRepeats(true)
+    remainT.start()
+  }
+
   def mkBoldLabel(text: String): Component =
     new Label(s"<html><body><b>$text</b></body>")
 

@@ -12,6 +12,7 @@
  */
 
 package de.sciss.tumulus
+import java.net.InetSocketAddress
 
 /** @param isLaptop             if `true`, assume we launch from laptop not raspberry pi
   * @param disableEnergySaving  if `true`, disable Raspi energy saving and screen blanker
@@ -57,4 +58,9 @@ final case class Config(isLaptop            : Boolean = false,
                        ) extends ConfigLike {
 
   def sftpAddress(path: String): String = s"$sftpUser@$sftpHost:$path"
+
+  def ownSocket: Option[InetSocketAddress] = None
+
+  def ledGroups   : Int = 4
+  def ledPerGroup : Int = 18
 }

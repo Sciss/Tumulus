@@ -42,3 +42,5 @@ On the laptop, `fswebcam` is used to take photos for testing (`sudo apt install 
 ### preparation
 
 The JNI library `librpiws28114j.so` must be installed.
+
+Copy `~/.tumulus` to mac mini.

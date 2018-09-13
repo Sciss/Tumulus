@@ -40,8 +40,6 @@ object Config {
     case "BRG" => WS2811_STRIP_BRG
     case "BGR" => WS2811_STRIP_BGR
   }
-
-  val ClientPort: Int = 0x4C69
 }
 /** N.B. light does not use SFTP; this is only for compatibility with ConfigLike. */
 final case class Config(isLaptop            : Boolean   = false,
@@ -61,5 +59,6 @@ final case class Config(isLaptop            : Boolean   = false,
                         sftpFinger          : String    = "70:87:7d:47:68:6d:b6:b3:bc:1c:3f:1d:d8:a5:d2:2d",
                        ) extends ConfigLike {
 
-  val ledCount: Int = ledGroups * ledPerGroup
+  def qJackCtl    : Boolean = false
+  def qJackCtlDly : Int     = 0
 }

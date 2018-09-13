@@ -13,12 +13,23 @@
 
 package de.sciss.tumulus
 
-trait ConfigLike {
-  def verbose   : Boolean
-  def isLaptop  : Boolean
+import java.net.InetSocketAddress
 
-  def sftpUser  : String
-  def sftpPass  : String
-  def sftpHost  : String
-  def sftpFinger: String
+trait ConfigLike {
+  def verbose     : Boolean
+  def isLaptop    : Boolean
+
+  def qJackCtl    : Boolean
+  def qJackCtlDly : Int
+
+  def sftpUser    : String
+  def sftpPass    : String
+  def sftpHost    : String
+  def sftpFinger  : String
+
+  def ownSocket   : Option[InetSocketAddress]
+
+  def ledGroups   : Int
+  def ledPerGroup : Int
+  def ledCount    : Int = ledGroups * ledPerGroup
 }

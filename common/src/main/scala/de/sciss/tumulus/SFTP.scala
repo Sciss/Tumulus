@@ -69,7 +69,7 @@ object SFTP {
     * Returns the names of the children of that directory.
     *
     * @param dir        the path on the server or empty string
-    * @param timeOutSec the time-out in seconds (default: 30)
+    * @param timeOutSec the time-out in seconds (default: 60)
     */
   def list(dir: String = "", timeOutSec: Long = 60)(implicit config: ConfigLike): Processor[List[Entry]] = {
     runProc[List[Entry]] {

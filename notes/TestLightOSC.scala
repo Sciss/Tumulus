@@ -47,7 +47,8 @@ clear()
 
 ///////////
 
-val afIn = io.AudioFile.openRead("/data/temp/rec180912_142157-colors.aif")
+// val afIn = io.AudioFile.openRead("/data/temp/rec180912_142157-colors.aif")
+val afIn = io.AudioFile.openRead("/data/temp/rec180912_181311-colors.aif")
 val colors = try {
   val buf = afIn.buffer(76)
   afIn.read(buf)
@@ -77,5 +78,27 @@ def normalize(in: Vector[Int]): Vector[Int] = {
   }
 }
 
+// normalize(colors).map(_.toHexString)
+
 set(colors: _*)
 set(normalize(colors): _*)
+
+def halfNorm(in: Vector[Int]): Vector[Int] = {
+  val maxRed   = in.iterator.map(i => (i >> 16) & 0xFF).max
+  val maxGreen = in.iterator.map(i => (i >>  8) & 0xFF).max
+  val maxBlue  = in.iterator.map(i => (i >>  0) & 0xFF).max
+  val max = math.max(maxRed, math.max(maxGreen, maxBlue))
+  if (max == 0xFF || max == 0x00) in else {
+    val gain = (255.0 / max).sqrt
+    in.map { i  =>
+      val red   = (((i >> 16) & 0xFF) * gain + 0.5).toInt
+      val green = (((i >>  8) & 0xFF) * gain + 0.5).toInt
+      val blue  = (((i >>  0) & 0xFF) * gain + 0.5).toInt
+      (red << 16) | (green << 8) | blue
+    }
+  }
+}
+
+set(halfNorm(colors): _*)
+
+clear()
