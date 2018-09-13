@@ -13,10 +13,6 @@
 
 package de.sciss.tumulus
 
-import java.io.FileInputStream
-import java.util.Properties
-
-import de.sciss.file._
 import de.sciss.model.Model
 import de.sciss.model.impl.ModelImpl
 import de.sciss.submin.Submin
@@ -29,7 +25,6 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 object Main extends MainLike {
-  implicit def _self: MainLike = this
 
   private object _status extends ModelImpl[String] {
     def fire(s: String): Unit = dispatch(s)
@@ -39,25 +34,14 @@ object Main extends MainLike {
 
   def setStatus(s: String): Unit = _status.fire(s)
 
-  private def buildInfString(key: String): String = try {
-    val clazz = Class.forName("de.sciss.tumulus.BuildInfo")
-    val m     = clazz.getMethod(key)
-    m.invoke(null).toString
-  } catch {
-    case NonFatal(_) => "?"
-  }
+  protected def subModule: String = "Pi"
 
-  final def name        : String      = "Mexican Tumulus"
+  override def name     : String      = "Mexican Tumulus"
   final def debPrefix   : String      = "tumulus-pi"
   final def debSuffix   : String      = ".deb"
-  final def version     : String      = buildInfString("version")
-  final def builtAt     : String      = buildInfString("builtAtString")
-  final def fullVersion : String      = s"v$version, built $builtAt"
   final def semVersion  : SemVersion  = Version(version)
 
   implicit val ec: ExecutionContext = ExecutionContext.global
-
-  def settingsDir: File = userHome / ".tumulus"
 
   def main(args: Array[String]): Unit = {
     val default = Config()
@@ -141,32 +125,7 @@ object Main extends MainLike {
         .action { (v, c) => c.copy(recInterval = v) }
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
-      val config = if (config0.sftpUser.nonEmpty && config0.sftpPass.nonEmpty) config0 else {
-        val f = settingsDir / "sftp.properties"
-        val p = new Properties
-        try {
-          val fIn = new FileInputStream(f)
-          try {
-            p.load(fIn)
-            var res = config0
-            if (config0.sftpUser.isEmpty) {
-              res = res.copy(sftpUser = p.getProperty("user"))
-            }
-            if (config0.sftpPass.isEmpty) {
-              res = res.copy(sftpPass = p.getProperty("pass"))
-            }
-            res
-
-          } finally {
-            fIn.close()
-          }
-        } catch {
-          case NonFatal(ex) =>
-            Console.err.println(s"Cannot read $f")
-            ex.printStackTrace()
-            config0
-        }
-      }
+      val config = SFTP.resolveConfig(config0)((u, p) => config0.copy(sftpUser = u, sftpPass = p))
 
       if (config.disableEnergySaving && !config.isLaptop) {
         import sys.process._

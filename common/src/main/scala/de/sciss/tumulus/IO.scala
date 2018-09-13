@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
 import de.sciss.equal.Implicits._
-import de.sciss.file.File
+import de.sciss.file._
 import de.sciss.kollflitz.ISeq
 import de.sciss.processor.Processor
 import de.sciss.tumulus.impl.ProcImpl
@@ -29,6 +29,8 @@ import scala.sys.process.{Process, ProcessLogger}
 
 object IO {
 //  case class Aborted() extends Exception
+
+  def settingsDir: File = userHome / ".tumulus"
 
   trait ProcessorMonitor[A] extends Processor[A] {
     def progress_=(value: Double): Unit

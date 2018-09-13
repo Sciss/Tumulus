@@ -1,8 +1,8 @@
 package de.sciss.tumulus.sound
 
 import de.sciss.file._
-import de.sciss.fscape.stream.Control.Config
-import de.sciss.fscape.{GE, Graph, graph, stream}
+import de.sciss.fscape.stream.Control
+import de.sciss.fscape.{GE, Graph, graph}
 import de.sciss.numbers
 import de.sciss.synth.io.{AudioFile, AudioFileSpec, SampleFormat}
 
@@ -136,9 +136,9 @@ object CreateSoundPool {
 //      framesWritten.poll(sr, "framesWritten")
     }
 
-    val cfg = Config()
+    val cfg = Control.Config()
     cfg.useAsync = false
-    val ctl = stream.Control()
+    val ctl = Control(cfg)
     ctl.run(g)
     ctl.status
   }

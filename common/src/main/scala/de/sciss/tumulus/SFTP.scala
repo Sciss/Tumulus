@@ -13,7 +13,10 @@
 
 package de.sciss.tumulus
 
-import de.sciss.file.File
+import java.io.FileInputStream
+import java.util.Properties
+
+import de.sciss.file._
 import de.sciss.processor.Processor
 import de.sciss.tumulus.IO.ProcessorMonitor
 import de.sciss.tumulus.impl.ProcImpl
@@ -26,9 +29,41 @@ import net.schmizz.sshj.xfer.{FileSystemFile, TransferListener}
 import scala.concurrent.blocking
 import scala.concurrent.ExecutionContext
 import scala.swing.Swing
+import scala.util.control.NonFatal
 
 object SFTP {
   case class Entry(name: String, isFile: Boolean, isDirectory: Boolean, size: Long, lastModified: Long)
+
+  def settingsFile: File = IO.settingsDir / "sftp.properties"
+
+  def resolveConfig[C <: ConfigLike](config0: C)(copy: (String, String) => C) : C = {
+    val hasUser = config0.sftpUser.nonEmpty
+    val hasPass = config0.sftpPass.nonEmpty
+    if (hasUser && hasPass) config0 else {
+      val f = SFTP.settingsFile
+      val p = new Properties
+      try {
+        val fIn = new FileInputStream(f)
+        try {
+          p.load(fIn)
+          val newUser = if (hasUser) config0.sftpUser else {
+            p.getProperty("user")
+          }
+          val newPass = if (hasPass) config0.sftpPass else {
+            p.getProperty("pass")
+          }
+          copy(newUser, newPass)
+
+        } finally {
+          fIn.close()
+        }
+      } catch {
+        case NonFatal(ex) =>
+          Console.err.println(s"Cannot read $f")
+          ex.printStackTrace()
+          config0
+      }
+    }  }
 
   /** Lists the contents of a directory (or the root directory if not specified).
     * Returns the names of the children of that directory.

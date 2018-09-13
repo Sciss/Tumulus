@@ -21,9 +21,7 @@ import de.sciss.file._
 import scala.util.Try
 
 object PhotoSettings {
-  def settingsDir: File = userHome / ".tumulus"
-
-  private def standardFile: File = settingsDir / "photo.properties"
+  private def standardFile: File = IO.settingsDir / "photo.properties"
 
   private final val KeyShutter  = "shutter"
   private final val KeyIso      = "iso"
