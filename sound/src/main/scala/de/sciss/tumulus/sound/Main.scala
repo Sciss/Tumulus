@@ -265,7 +265,10 @@ object Main extends MainLike {
 
       if (!config.isLaptop && !config.noCrazyEth0Story) {
         try {
-          eth0magic()
+          eth0down()
+          Thread.sleep(6000)
+          eth0up()
+          Thread.sleep(6000)
         } catch {
           case NonFatal(ex) => ex.printStackTrace()
         }
@@ -276,18 +279,22 @@ object Main extends MainLike {
     }
   }
 
-  private def eth0magic()(implicit config: Config): Unit = {
-    println("Attempting some eth0 magic...")
+  def eth0down()(implicit config: Config): Boolean = {
+    eth0mode("down")
+  }
 
-    def ifConfig(mode: String): Unit = {
-      val pr = IO.process("sudo", args = List("ifconfig", "eth0", mode), timeOutSec = 10)(_ => ())
-      Await.ready(pr, Duration(12, TimeUnit.SECONDS))
-    }
-
-    ifConfig("down")
-    Thread.sleep(4000L)
+  def eth0up()(implicit config: Config): Boolean = {
     val host = config.ownSocket.fold("192.168.0.20")(_.getHostString)
-    ifConfig(host)
+    eth0mode(host)
+  }
+
+  private def eth0mode(mode: String)(implicit config: Config): Boolean = {
+    val tr = for {
+      proc <- Try(IO.process("sudo", args = List("ifconfig", "eth0", mode), timeOutSec = 10)(_ => ()))
+      _    <- Try(Await.result(proc, Duration(12, TimeUnit.SECONDS)))
+    } yield ()
+
+    tr.isSuccess
   }
 
   def run(localSocketAddress: InetSocketAddress)(implicit config: Config): Unit = {
@@ -391,6 +398,8 @@ object Main extends MainLike {
     }
 
     val sch = Schedule(as, downloadOpt, playerTr.toOption)
+
+
 
     mainWindow = new MainWindow(as, light, _oscT, sch)
   }

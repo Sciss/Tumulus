@@ -21,13 +21,14 @@ import de.sciss.kollflitz.Vec
 import de.sciss.processor.ProcessorLike
 import de.sciss.processor.impl.ProcessorImpl
 import de.sciss.synth.io.{AudioFile, AudioFileSpec}
-import de.sciss.tumulus.sound.Main.{atomic, downloadDir, setStatus, tryPrint}
+import de.sciss.tumulus.sound.Main.{atomic, downloadDir, eth0down, eth0up, setStatus, tryPrint}
 import de.sciss.tumulus.sound.Player.inBackup
 import de.sciss.tumulus.{IO, MainLike, PhotoSettings, SFTP}
 
 import scala.annotation.tailrec
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, blocking}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 object DownloadRender {
@@ -70,20 +71,42 @@ object DownloadRender {
       blocking(Thread.sleep(20000L))
 
     @tailrec
-    private def listFiles(): List[SFTP.Entry] = {
+    private def listFiles(didMagic: Boolean = false): List[SFTP.Entry] = {
       checkAborted()
+
+      def tryMagic(): Unit = if (!didMagic) {
+        if (!config.isLaptop && !config.noCrazyEth0Story) {
+          println("TRYING SOME ETH0 MAGIC")
+          val t = new Thread {
+            override def run(): Unit =
+              try {
+                eth0down()
+                Thread.sleep(6000)
+                eth0up()
+                Thread.sleep(6000)
+              } catch {
+                case NonFatal(ex) => ex.printStackTrace()
+              }
+          }
+          t.start()
+        }
+      }
+
       val procTr = tryPrint(SFTP.list())
       procTr match {
         case Success(proc) =>
           val listTr = tryPrint(awaitT(proc))
           listTr match {
             case Success(list)  => list
-            case Failure(_)     => listFiles()
+            case Failure(_) =>
+              tryMagic()
+              listFiles(didMagic = true)
           }
 
         case Failure(_) =>
           waitSome()
-          listFiles()
+          tryMagic()
+          listFiles(didMagic = true)
       }
     }
 

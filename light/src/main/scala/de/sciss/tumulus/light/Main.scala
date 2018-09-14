@@ -98,6 +98,10 @@ object Main extends MainLike {
         .text(s"MAC address of sound computer (default: ${default.soundMAC})")
         .action { (v, c) => c.copy(soundMAC = v) }
 
+      opt[String]("sound-host")
+        .text(s"IP address of sound computer (default: ${default.soundHost})")
+        .action { (v, c) => c.copy(soundHost = v) }
+
       opt[Unit]("no-wake-on-lan")
         .text("Do not use wakeonlan to wake up sound computer.")
         .action { (_, c) => c.copy(wakeOnLAN = false) }
@@ -106,17 +110,19 @@ object Main extends MainLike {
       println(s"$name - $fullVersion")
 
       if (config.wakeOnLAN) {
-        for (i <- 1 to 3)
+        println("Trying to wake up sound computer...")
+        for (i <- 1 to 6)
           try {
             Thread.sleep(1000)
             import sys.process._
-            Seq("wakeonlan", config.soundMAC).!
+            Seq("wakeonlan", "-i", config.soundHost, config.soundMAC).!
           } catch {
             case NonFatal(ex) =>
-              Console.err.println(s"Failed to call wakeonlan (attempt $i")
+              Console.err.println(s"Failed to call wakeonlan (attempt $i/6")
               ex.printStackTrace()
           }
       }
+
 
       if (config.disableEnergySaving && !config.isLaptop) {
         import sys.process._
@@ -135,6 +141,7 @@ object Main extends MainLike {
 //      }
 
       val localSocketAddress = Network.mkOwnSocket(IO.defaultLightPort)
+
       run(localSocketAddress)
     }
   }

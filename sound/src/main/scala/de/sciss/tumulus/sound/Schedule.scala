@@ -88,6 +88,8 @@ object Schedule {
         } ()
 
         tryPrint(Main.hibernateSelf())
+        println("Returning from sleep. 10 sec before reboot...")
+        Thread.sleep(10000)
         Main.rebootSelf()
       }
     }
