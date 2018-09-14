@@ -21,7 +21,8 @@ import de.sciss.kollflitz.Vec
 import de.sciss.processor.impl.ProcessorImpl
 import de.sciss.processor.{Processor, ProcessorLike}
 import de.sciss.synth.io.{AudioFile, AudioFileSpec}
-import de.sciss.tumulus.sound.Main.{downloadDir, setStatus, atomic}
+import de.sciss.tumulus.sound.Main.{atomic, downloadDir, setStatus}
+import de.sciss.tumulus.sound.Player.inBackup
 import de.sciss.tumulus.{IO, MainLike, PhotoSettings, SFTP}
 
 import scala.annotation.tailrec
@@ -215,23 +216,29 @@ object DownloadRender {
 
           if (soundOk) {
             val fColors = Player.colorsFile(local.base)
-            val pixelsOk = (for {
-              pixelsPr <- tryPrint(PixelRenderer.run(fIn = local.fPhoto, specIn = local.imageSpec,
-                                    photoSettings = local.meta, fOutColor = fColors))
-              _        <- tryPrint(Await.result(pixelsPr, Duration(2, TimeUnit.MINUTES)))
-            } yield ()).isSuccess
+            val colorsTr =
+              for {
+                pixelsPr <- tryPrint(PixelRenderer.run(fIn = local.fPhoto, specIn = local.imageSpec,
+                                      photoSettings = local.meta, fOutColor = fColors))
+                _        <- tryPrint(Await.result(pixelsPr, Duration(2, TimeUnit.MINUTES)))
+                colors   <- tryPrint(PixelRenderer.readColors(fColors))
+             } yield colors
 
-            if (pixelsOk) {
-              val fOk   = Player.okFile(local.base)
-              val okOk  = tryPrint(fOk.createNewFile()).isSuccess
+            colorsTr match {
+              case Success(colors) =>
+                val fOk   = Player.okFile(local.base)
+                val okOk  = tryPrint(fOk.createNewFile()).isSuccess
 
-              if (okOk) {
-                setStatus(s"Rendered '$base'.")
-                val pe = Player.Entry(base = base, fResonance = fResonance, fColors = fColors)
-                atomic { implicit tx =>
-                  player.inject(pe)
+                if (okOk) {
+                  setStatus(s"Rendered '$base'.")
+                  local.moveToBackup()
+                  val pe = Player.Entry(base = base, fResonance = fResonance, fColors = fColors, colors = colors)
+                  atomic { implicit tx =>
+                    player.inject(pe)
+                  }
                 }
-              }
+
+              case Failure(_) =>
             }
           }
         }
@@ -251,6 +258,17 @@ object DownloadRender {
   private case class Local(base: String, meta: PhotoSettings, audioSpec: AudioFileSpec, imageSpec: ImageFile.Spec) {
     def fSound: File = downloadDir / wavName  (base)
     def fPhoto: File = downloadDir / photoName(base)
+
+    private def moveToBackup(f: File): Unit = {
+      val ok = f.renameTo(inBackup(f))
+      if (!ok) f.delete()
+    }
+
+    def moveToBackup(): Unit = {
+      moveToBackup(fSound)
+      moveToBackup(fPhoto)
+      moveToBackup(flacName(base))
+    }
   }
 }
 trait DownloadRender extends ProcessorLike[Unit, DownloadRender]

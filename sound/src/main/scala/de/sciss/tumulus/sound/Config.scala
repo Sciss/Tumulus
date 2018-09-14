@@ -29,13 +29,14 @@ final case class Config(isLaptop          : Boolean   = false,
                         highPassHz        : Double    = 150.0,
                         photoThreshPerc   : Double    = 0.7,
                         photoThreshFactor : Double    = 0.7,
-                        maxPoolSize       : Int       = 180,
+                        maxPoolSize       : Int       = 360, // 180,
                         masterGainDb      : Double    = -10.5,
                         masterLimiterDb   : Double    = -28.0,
                         ledGainRed        : Double    = 1.0,
                         ledGainGreen      : Double    = 0.75,
                         ledGainBlue       : Double    = 0.56,
                         noDownloads       : Boolean   = false,
+                        ledNormPow        : Double    = 0.5,
 ) extends ConfigLike {
 
   def sftpAddress(path: String): String = s"$sftpUser@$sftpHost:$path"

@@ -214,6 +214,10 @@ object Main extends MainLike {
         .text("Do not start download process")
         .action { (_, c) => c.copy(noDownloads = true) }
 
+      opt[Double]("led-norm-pow")
+        .text(s"LED color normalization power factor (default: ${default.ledNormPow})")
+        .validate { v => if (v > 0.0 && v <= 1.0) success else failure("Must be > 0 and <= 1") }
+        .action { (v, c) => c.copy(ledNormPow = v) }
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
       implicit val config: Config =
@@ -279,7 +283,15 @@ object Main extends MainLike {
       as.start(sCfg)
     }
 
-    val playerTr = attempt("start player")(Player(as))
+    val oscTCfg                 = osc.UDP.Config()
+    oscTCfg.localSocketAddress  = localSocketAddress
+    val oscT                    = osc.UDP.Transmitter(oscTCfg)
+
+    val light = new LightDispatch(oscT)
+
+    attempt("connect OSC transmitter")(oscT.connect())
+
+    val playerTr = attempt("start player")(Player(as, light))
 
     if (!config.noDownloads) {
       playerTr.foreach { player =>
@@ -287,12 +299,6 @@ object Main extends MainLike {
       }
     }
 
-    val oscTCfg                 = osc.UDP.Config()
-    oscTCfg.localSocketAddress  = localSocketAddress
-    val oscT                    = osc.UDP.Transmitter(oscTCfg)
-
-    attempt("connect OSC transmitter")(oscT.connect())
-
-    mainWindow = new MainWindow(as, oscT)
+    mainWindow = new MainWindow(as, light, oscT)
   }
 }

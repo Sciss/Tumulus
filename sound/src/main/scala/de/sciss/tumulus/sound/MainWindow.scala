@@ -30,7 +30,7 @@ import scala.concurrent.stm.Ref
 import scala.swing.event.{ButtonClicked, ValueChanged}
 import scala.swing.{BorderPanel, BoxPanel, Button, FlowPanel, Frame, GridPanel, Label, Orientation, ToggleButton}
 
-class MainWindow(as: AuralSystem, oscT: osc.UDP.Transmitter.Undirected)(implicit config: Config) {
+class MainWindow(as: AuralSystem, light: LightDispatch, oscT: osc.UDP.Transmitter.Undirected)(implicit config: Config) {
   private[this] val ggServer  = new ServerStatusPanel
   private[this] val pTop      = new BoxPanel(Orientation.Vertical) {
     contents += ggServer
@@ -49,14 +49,12 @@ class MainWindow(as: AuralSystem, oscT: osc.UDP.Transmitter.Undirected)(implicit
         java.awt.Color.getHSBColor(h, 1f, 1f).getRGB
       }
     }
-    val m = osc.Message("/led", vec: _*)
-    oscT.send(m, config.lightSocket)
+    light.setRGB(vec)
   }
 
   private[this] val ggLightOff = Button("Light Off") {
     val vec: Vec[Int] = Vector.fill(config.ledCount)(0)
-    val m = osc.Message("/led", vec: _*)
-    oscT.send(m, config.lightSocket)
+    light.setRGB(vec)
   }
 
   private[this] val synthRef = Ref(Option.empty[Synth])
@@ -135,7 +133,11 @@ class MainWindow(as: AuralSystem, oscT: osc.UDP.Transmitter.Undirected)(implicit
     res
   }
 
-  private[this] val ggLights = ScreenLight.component()
+  private[this] val ggLights = {
+    val res = ScreenLight.component()
+    light.setView(res)
+    res
+  }
 
   private[this] val pBottom = new GridPanel(3, 1) {
     vGap = 4

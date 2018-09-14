@@ -14,12 +14,13 @@
 package de.sciss.tumulus.sound
 
 import de.sciss.file._
-import de.sciss.numbers.Implicits._
 import de.sciss.kollflitz.Vec
-import de.sciss.lucre.synth.{Buffer, Server, Synth, Txn}
 import de.sciss.lucre.stm.TxnLike.peer
-import de.sciss.synth.{SynthGraph, addToHead, ugen}
+import de.sciss.lucre.synth.{Buffer, Server, Synth, Txn}
+import de.sciss.numbers.Implicits._
 import de.sciss.synth.proc.AuralSystem
+import de.sciss.synth.{SynthGraph, addToHead, ugen}
+import de.sciss.tumulus.Light
 import de.sciss.tumulus.sound.Main.{atomic, backupDir, renderDir}
 
 import scala.concurrent.stm.{Ref, TSet}
@@ -35,7 +36,7 @@ object Player {
 
   def inBackup(f: File): File = backupDir / f.name
 
-  final case class Entry(base: String, fResonance: File, fColors: File) {
+  final case class Entry(base: String, fResonance: File, fColors: File, colors: Vec[Int]) {
     def fOk: File = okFile(base)
 
     private def moveToBackup(f: File): Unit = {
@@ -50,13 +51,14 @@ object Player {
     }
   }
 
-  def scan(): Vec[Entry] = {
+  def scan()(implicit config: Config): Vec[Entry] = {
     val all = renderDir.children(_.ext == "ok").flatMap { fOk =>
       val base        = fOk.base
       val fResonance  = resonanceFile (base)
       val fColors     = colorsFile    (base)
       if (fResonance.isFile && fColors.isFile) {
-        Some(Entry(base, fResonance = fResonance, fColors = fColors))
+        val colors = PixelRenderer.readColors(fColors)
+        Some(Entry(base, fResonance = fResonance, fColors = fColors, colors = colors))
       } else {
         None
       }
@@ -73,9 +75,9 @@ object Player {
     }
   }
 
-  def apply(as: AuralSystem)(implicit config: Config): Player = {
+  def apply(as: AuralSystem, light: Light)(implicit config: Config): Player = {
     val list0 = scanAndClean()
-    val res   = new Impl(as, list0, config)
+    val res   = new Impl(as, light, list0, config)
     atomic { implicit tx =>
       as.addClientNow(new ServerUser("player") {
         def booted(s: Server)(implicit tx: Txn): Unit = {
@@ -87,16 +89,16 @@ object Player {
     res
   }
 
-  private final class Impl(as: AuralSystem, list0: Vec[Entry], config: Config) extends Player {
+  private final class Impl(as: AuralSystem, light: Light, list0: Vec[Entry], config: Config) extends Player {
     private[this] val listRef = Ref(list0)
     private[this] val inUse   = TSet.empty[Entry]
     private[this] val synSet  = TSet.empty[Synth]
-    private[this] val index   = Ref(0) // Ref(math.max(0, list0.size - 176)) -- is around zero for maxPoolSize 180
+    private[this] val index   = Ref(0)
     private[this] val running = Ref(false)
 
     private[this] val g = SynthGraph {
-      import ugen._
       import de.sciss.synth.Ops.stringToControl
+      import ugen._
       val buf   = "buf".ir
       val disk  = DiskIn.ar(numChannels = 1, buf = buf, loop = 0)
       FreeSelfWhenDone.kr(disk)
@@ -141,6 +143,7 @@ object Player {
       if (list.isEmpty) return
 
       val idx0    = index()
+      val e0      = list(idx0)
       val numSyn  = math.min(config.numChannels, list.size)
       synSet.foreach(_.dispose())
       synSet.clear()
@@ -164,8 +167,11 @@ object Player {
       val idx1  = (idx0 + 1) % list.size
       index()   = idx1
 
-      val msg = s"Iterate $idx0"
+      val msg = s"Iterate $idx0 - ${e0.base}"
       tx.afterCommit {
+        val colors = e0.colors
+        // println(colors)
+        light.setRGB(colors)
         Main.setStatus(msg)
         log(msg)
       }

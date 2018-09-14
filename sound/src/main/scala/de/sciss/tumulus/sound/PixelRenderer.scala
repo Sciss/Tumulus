@@ -16,11 +16,13 @@ package de.sciss.tumulus.sound
 import de.sciss.file._
 import de.sciss.fscape.graph._
 import de.sciss.fscape.{GE, Graph, stream}
-import de.sciss.synth.io.AudioFileSpec
+import de.sciss.kollflitz.Vec
+import de.sciss.synth.io.{AudioFile, AudioFileSpec}
 import de.sciss.tumulus.PhotoSettings
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
 
 object PixelRenderer {
   def main(args: Array[String]): Unit = {
@@ -47,6 +49,33 @@ object PixelRenderer {
   }
 
   def any2stringadd: Any = ()
+
+  def readColors(f: File)(implicit config: Config): Vec[Int] = {
+    val vec0 = try {
+      val afIn = AudioFile.openRead(f)
+      try {
+        val n   = math.min(config.ledCount, afIn.numFrames).toInt
+        val buf = afIn.buffer(n)
+        afIn.read(buf)
+        Vector.tabulate(n) { i =>
+          val red   = (buf(0)(i) * 255 + 0.5).toInt
+          val green = (buf(1)(i) * 255 + 0.5).toInt
+          val blue  = (buf(2)(i) * 255 + 0.5).toInt
+          (red << 16) | (green << 8) | blue
+        }
+      } finally {
+        afIn.close()
+      }
+
+    } catch {
+      case NonFatal(ex) =>
+        println(s"!! Could not read colors from $f")
+        ex.printStackTrace()
+        Vector.empty
+    }
+
+    if (vec0.size == config.ledCount) vec0 else vec0.padTo(config.ledCount, 0x000000)
+  }
 
   def run(fIn: File, specIn: ImageFile.Spec, photoSettings: PhotoSettings, fOutColor: File,
           fOutCrop: Option[File] = None)(implicit config: Config): Future[Unit] = {
