@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Tumulus-Sound
+Type=Application
+GenericName=Audio-Visual Installation
+Exec=/home/hhrutz/Documents/devel/Tumulus/run-sound.sh
+Terminal=true
+X-GNOME-Autostart-enabled=true
+
