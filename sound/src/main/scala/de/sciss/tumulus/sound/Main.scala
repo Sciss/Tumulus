@@ -152,8 +152,16 @@ object Main extends MainLike {
           c.copy(ownSocket = Some(addr))
         }
 
+      opt[String]("light-host")
+        .text(s"Light computer host name (default: ${default.lightHost})")
+        .action { (v, c) => c.copy(lightHost = v) }
+
+      opt[Int]("light-port")
+        .text(s"Light computer OSC port (default: ${default.lightPort})")
+        .action { (v, c) => c.copy(lightPort = v) }
+
       opt[Seq[Double]]("chan-amp")
-        .text (s"Peak channel amplitudes in decibels, (default: ${default.chanAmpsDb.mkString(",")})")
+        .text (s"Peak channel amplitudes in decibels (default: ${default.chanAmpsDb.mkString(",")})")
         .action { (v, c) => c.copy(chanAmpsDb = v.toVector) }
 
       opt[Double]("limiter-boost")
@@ -222,19 +230,19 @@ object Main extends MainLike {
         .action { (v, c) => c.copy(ledNormPow = v) }
 
       opt[TimeOfDay]("stop-sound-weekdays")
-        .text(s"Scheduled time to stop sound on weekdays (default: ${default.soundStopWeekdays}")
+        .text(s"Scheduled time to stop sound on weekdays (default: ${default.soundStopWeekdays})")
         .action { (v, c) => c.copy(soundStopWeekdays = v) }
 
       opt[TimeOfDay]("stop-sound-weekend")
-        .text(s"Scheduled time to stop sound on weekdays (default: ${default.soundStopWeekend}")
+        .text(s"Scheduled time to stop sound on weekdays (default: ${default.soundStopWeekend})")
         .action { (v, c) => c.copy(soundStopWeekend = v) }
 
       opt[TimeOfDay]("stop-light-weekdays")
-        .text(s"Scheduled time to stop light on weekdays (default: ${default.lightStopWeekdays}")
+        .text(s"Scheduled time to stop light on weekdays (default: ${default.lightStopWeekdays})")
         .action { (v, c) => c.copy(lightStopWeekdays = v) }
 
       opt[TimeOfDay]("stop-light-weekend")
-        .text(s"Scheduled time to stop light on weekdays (default: ${default.lightStopWeekend}")
+        .text(s"Scheduled time to stop light on weekdays (default: ${default.lightStopWeekend})")
         .action { (v, c) => c.copy(lightStopWeekend = v) }
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
