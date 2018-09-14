@@ -12,7 +12,8 @@ object PixelTest extends App {
   def any2stringadd: Any = ()
 
 //  val fIn       = file("/data/projects/Tumulus/data/rec180912_142157.jpg")
-  val fIn       = file("/data/projects/Tumulus/data/rec180912_181311.jpg")
+//  val fIn       = file("/data/projects/Tumulus/data/rec180912_181311.jpg")
+  val fIn       = file("/data/projects/Tumulus/data/rec180913_102141.jpg")
 //  val fIn       = file("/data/projects/Tumulus/data/rec180821_081752.jpg")
   val fProp     = fIn.replaceExt("properties")
   val set       = PhotoSettings().loadFrom(fProp)

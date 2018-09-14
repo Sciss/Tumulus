@@ -102,3 +102,8 @@ def halfNorm(in: Vector[Int]): Vector[Int] = {
 set(halfNorm(colors): _*)
 
 clear()
+
+////////////
+////////////
+
+t.send(osc.Message("/shutdown"), tgt)
