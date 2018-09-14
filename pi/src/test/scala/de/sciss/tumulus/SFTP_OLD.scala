@@ -17,14 +17,14 @@ object SFTP_OLD {
     * @param dir        the path on the server or empty string
     * @param timeOutSec the time-out in seconds (default: 30)
     */
-  def list(dir: String = "", timeOutSec: Long = 60)(implicit config: Config): Processor[List[String]] = {
+  def list(dir: String = "", timeOutSec: Int = 60)(implicit config: Config): Processor[List[String]] = {
     val args = List("-q", config.sftpAddress(dir))
     IO.processStringInStringOut(program, args, input = "ls -1", timeOutSec = timeOutSec)(out =>
       out.split("\n").iterator.dropWhile(_.startsWith("sftp>")).toList
     )
   }
 
-  def download(dir: String = "", file: String, timeOutSec: Long = 1800, target: File, resume: Boolean = false)
+  def download(dir: String = "", file: String, timeOutSec: Int = 1800, target: File, resume: Boolean = false)
               (implicit config: Config): ProcessorMonitor[Unit] = {
 
     val args = List(/* "-q", */ "-v", config.sftpAddress(dir))

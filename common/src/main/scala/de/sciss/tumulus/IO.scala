@@ -39,7 +39,7 @@ object IO {
     def progress_=(value: Double): Unit
   }
 
-  def process[A](cmd: String, args: ISeq[String], timeOutSec: Long)
+  def process[A](cmd: String, args: ISeq[String], timeOutSec: Int)
                 (output: String => A)(implicit config: ConfigLike): Processor[A] =
     processStringInStringOut(cmd = cmd, args = args, input = "", timeOutSec = timeOutSec)(output)
 
@@ -52,7 +52,7 @@ object IO {
     * @param output       the function that maps the process' standard output string to a return value
     * @return A processor that can be cancelled to abort the process early
     */
-  def processStringInStringOut[A](cmd: String, args: ISeq[String], input: String, timeOutSec: Long)
+  def processStringInStringOut[A](cmd: String, args: ISeq[String], input: String, timeOutSec: Int)
                                  (output: String => A)(implicit config: ConfigLike): ProcessorMonitor[A] = {
     val sbOut = new StringBuffer()
     processStringIn[A](cmd, args, input = input, timeOutSec = timeOutSec) { s =>
@@ -64,7 +64,7 @@ object IO {
     }
   }
 
-  def processStringIn[A](cmd: String, args: ISeq[String], input: String, timeOutSec: Long)(lineOut: String => Unit)
+  def processStringIn[A](cmd: String, args: ISeq[String], input: String, timeOutSec: Int)(lineOut: String => Unit)
                         (mkResult: => A)(implicit config: ConfigLike): ProcessorMonitor[A] = {
     val pb = Process(cmd, args).#<(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)))
     if (config.verbose) {
@@ -95,7 +95,7 @@ object IO {
             _process.exitValue()
           }
         }
-        val code: Int = Await.result(futAux, Duration(timeOutSec, TimeUnit.SECONDS))
+        val code: Int = Await.result(futAux, Duration(timeOutSec.toLong, TimeUnit.SECONDS))
         if (code === 0) {
           mkResult
         } else {

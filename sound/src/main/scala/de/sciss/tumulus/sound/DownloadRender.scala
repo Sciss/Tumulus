@@ -14,14 +14,18 @@
 package de.sciss.tumulus.sound
 
 import de.sciss.file._
+import de.sciss.fscape.graph.ImageFile
+import de.sciss.kollflitz.Vec
 import de.sciss.processor.impl.ProcessorImpl
 import de.sciss.processor.{Processor, ProcessorLike}
-import de.sciss.tumulus.{MainLike, SFTP}
+import de.sciss.tumulus.{IO, MainLike, PhotoSettings, SFTP}
 
 import scala.annotation.tailrec
 import scala.concurrent.{Await, blocking}
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
+import Main.downloadDir
+import de.sciss.synth.io.{AudioFile, AudioFileSpec}
 
 object DownloadRender {
   def apply()(implicit config: Config, main: MainLike): DownloadRender = {
@@ -95,13 +99,8 @@ object DownloadRender {
     private def log(what: => String): Unit =
       if (config.verbose) println(what)
 
-    private def soundName (base: String): String = s"$base.flac"
-    private def photoName (base: String): String = s"$base.jpg"
-    private def metaName  (base: String): String = s"$base.properties"
-
-    protected def body(): Unit = {
-      // --------- determine online recording sets ---------
-
+    // --------- determine online recording sets ---------
+    private def bodyListFiles(): Vec[String] = {
       val list0: List[SFTP.Entry] = listFiles()
       val nameSet = list0.iterator.filter(e => e.isFile && e.size > 0L).map(_.name).toSet
 
@@ -112,7 +111,7 @@ object DownloadRender {
 
       def entryComplete(name: String): Boolean = {
         val base = mkBase(name)
-        base.nonEmpty && nameSet.contains(soundName(base)) &&
+        base.nonEmpty && nameSet.contains(flacName(base)) &&
           nameSet.contains(photoName(base)) && nameSet.contains(metaName(base))
       }
 
@@ -124,49 +123,92 @@ object DownloadRender {
 
       checkAborted()
 
+      val setVec = baseSet.toVector.sorted  // thus oldest to newest
+      setVec
+    }
+
+    // --------- start downloading ---------
+    private def bodyDownload(base: String): Option[Local] = {
+      val remoteNames = List(
+        "sound" -> flacName(base), "photo" -> photoName(base), "meta" -> metaName(base)
+      )
+
+      @tailrec
+      def loop(rem: List[(String, String)], triesRem: Int = 3): Boolean = {
+        checkAborted()
+        rem match {
+          case (prefix, fRemote) :: tail =>
+            val fLocal  = downloadDir / fRemote
+            val dlTry   = tryPrint(SFTP.download(prefix = prefix, file = fRemote, target = fLocal))
+            val resTry  = dlTry.map { dl =>
+              tryPrint(awaitT(dl))
+            }
+
+            resTry match {
+              case Success(_) =>
+                log(s"Downloaded '$fRemote'")
+                loop(tail)
+
+              case _ =>
+                val triesRemNew = triesRem - 1
+                log(s"! Failed to download '$fRemote' ($triesRemNew tries left)")
+                waitSome()
+                if (triesRemNew > 0) loop(rem, triesRemNew) else false
+            }
+
+          case Nil =>
+            true
+        }
+      }
+
+      val dlOk = loop(remoteNames)
+
+      checkAborted()
+
+      val res = if (dlOk) {
+        (for {
+          meta      <- tryPrint(PhotoSettings().loadFrom(downloadDir / metaName (base)))
+          imageSpec <- tryPrint(ImageFile      .readSpec(downloadDir / photoName(base)))
+          _         <- decompressFLAC(fIn = downloadDir / flacName(base), fOut = downloadDir / wavName(base))
+          audioSpec <- tryPrint(AudioFile      .readSpec(downloadDir / wavName  (base)))
+        } yield {
+          Local(base, meta, audioSpec, imageSpec)
+        }).toOption
+
+      } else None
+
+      checkAborted()
+      res
+    }
+
+    private def decompressFLAC(fIn: File, fOut: File): Try[Unit] = {
+      val cmd     = "flac"
+      val args    = List("-s", "-d", "-f", "--no-delete-input-file", "-o", fOut.path, fIn.path)
+      for {
+        flac <- tryPrint(IO.process(cmd, args, timeOutSec = 30)(_ => ()))
+        _    <- tryPrint(awaitT(flac))
+      } yield ()
+    }
+
+    protected def body(): Unit = {
+      val setVec = bodyListFiles()
+
       // --------- start downloading ---------
 
-      val setVec = baseSet.toVector.sorted  // thus oldest to newest
       setVec.foreach { base =>
-        val remoteNames = List(
-          "sound" -> soundName(base), "photo" -> photoName(base), "meta" -> metaName(base)
-        )
-
-        @tailrec
-        def loop(rem: List[(String, String)], res: List[String], triesRem: Int = 3): List[String] = {
-          checkAborted()
-          rem match {
-            case (prefix, fRemote) :: tail =>
-              val fLocal = Main.downloadDir / fRemote
-              val dlTry   = tryPrint(SFTP.download(prefix = prefix, file = fRemote, target = fLocal))
-              val resTry  = dlTry.map { dl =>
-                tryPrint(awaitT(dl))
-              }
-
-              resTry match {
-                case Success(_) =>
-                  log(s"Downloaded '$fRemote'")
-                  loop(tail, fRemote :: res)
-
-                case _ =>
-                  val triesRemNew = triesRem - 1
-                  log(s"! Failed to download '$fRemote' ($triesRemNew tries left)")
-                  waitSome()
-                  if (triesRemNew > 0) loop(rem, res, triesRemNew) else loop(tail, res)
-              }
-
-            case Nil =>
-              res.reverse
-          }
-        }
-
-        val okNames = loop(remoteNames, res = Nil)
-
-        checkAborted()
-
-        // --------- bla ---------
+        val localOpt = bodyDownload(base)
       }
     }
+  }
+
+  private def flacName  (base: String): String = s"$base.flac"
+  private def wavName   (base: String): String = s"$base.wav"
+  private def photoName (base: String): String = s"$base.jpg"
+  private def metaName  (base: String): String = s"$base.properties"
+
+  private case class Local(base: String, meta: PhotoSettings, audioSpec: AudioFileSpec, imageSpec: ImageFile.Spec) {
+    def fSound: File = downloadDir / wavName  (base)
+    def fPhoto: File = downloadDir / photoName(base)
   }
 }
 trait DownloadRender extends ProcessorLike[Unit, DownloadRender]

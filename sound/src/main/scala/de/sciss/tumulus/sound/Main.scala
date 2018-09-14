@@ -16,6 +16,7 @@ package de.sciss.tumulus.sound
 import java.net.InetSocketAddress
 
 import de.sciss.file._
+import de.sciss.lucre.swing.defer
 import de.sciss.lucre.synth.{Server, Txn}
 import de.sciss.osc
 import de.sciss.submin.Submin
@@ -29,8 +30,16 @@ import scala.util.control.NonFatal
 object Main extends MainLike {
   implicit def ec: ExecutionContext = ExecutionContext.global
 
-  def setStatus(s: String): Unit =
-    println(s"[status] $s")
+  @volatile
+  private[this] var mainWindow: MainWindow = _
+
+  def setStatus(s: String): Unit = {
+    val w = mainWindow
+    if (w == null) println(s"[status] $s")
+    else defer {
+      w.setStatus(s)
+    }
+  }
 
   protected def subModule: String = "Sound"
 
@@ -199,6 +208,6 @@ object Main extends MainLike {
         ex.printStackTrace()
     }
 
-    new MainWindow(as, oscT)
+    mainWindow = new MainWindow(as, oscT)
   }
 }

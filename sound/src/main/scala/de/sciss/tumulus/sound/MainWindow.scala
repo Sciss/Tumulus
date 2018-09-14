@@ -29,12 +29,17 @@ import de.sciss.lucre.stm.TxnLike.{peer => stmPeer}
 
 import scala.concurrent.stm.Ref
 import scala.swing.event.ValueChanged
-import scala.swing.{BorderPanel, BoxPanel, Button, FlowPanel, Frame, Label, Orientation}
+import scala.swing.{BorderPanel, BoxPanel, Button, FlowPanel, Frame, GridPanel, Label, Orientation, Swing}
 
 class MainWindow(as: AuralSystem, oscT: osc.UDP.Transmitter.Undirected)(implicit config: Config) {
   private[this] val ggServer  = new ServerStatusPanel
   private[this] val pTop      = new BoxPanel(Orientation.Vertical) {
     contents += ggServer
+  }
+  private[this] val lbStatus  = {
+    val res = new Label("Ready.")
+    res.preferredSize = res.preferredSize
+    res
   }
 
   private[this] val ggLightTest = Button("Test Light") {
@@ -92,7 +97,11 @@ class MainWindow(as: AuralSystem, oscT: osc.UDP.Transmitter.Undirected)(implicit
     res
   }
 
-  private[this] val pBottom   = new FlowPanel(ggLightTest, ggLightOff, new Label("Test chan.:"), ggSoundChan)
+  private[this] val pBottom = new GridPanel(2, 1) {
+    vGap = 4
+    contents += new FlowPanel(ggLightTest, ggLightOff, new Label("Test chan.:"), ggSoundChan)
+    contents += lbStatus
+  }
 
   private def packFrame(): Unit = {
     frame.pack().centerOnScreen()
@@ -130,4 +139,7 @@ class MainWindow(as: AuralSystem, oscT: osc.UDP.Transmitter.Undirected)(implicit
       }
     })
   }
+
+  def setStatus(s: String): Unit =
+    lbStatus.text = s
 }
