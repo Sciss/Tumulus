@@ -14,6 +14,7 @@
 package de.sciss.tumulus.sound
 
 import java.net.InetSocketAddress
+import java.util.concurrent.TimeUnit
 
 import de.sciss.file._
 import de.sciss.lucre.swing.defer
@@ -22,9 +23,10 @@ import de.sciss.osc
 import de.sciss.processor.Processor
 import de.sciss.submin.Submin
 import de.sciss.synth.proc.AuralSystem
-import de.sciss.tumulus.{MainLike, Network, SFTP, UI}
+import de.sciss.tumulus.{IO, MainLike, Network, SFTP, UI}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.stm.TxnExecutor
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -244,6 +246,11 @@ object Main extends MainLike {
       opt[TimeOfDay]("stop-light-weekend")
         .text(s"Scheduled time to stop light on weekdays (default: ${default.lightStopWeekend})")
         .action { (v, c) => c.copy(lightStopWeekend = v) }
+
+      opt[Unit]("no-eth0-magic")
+        .text("Do not fiddle around with ifconfig eth0")
+        .action { (_, c) => c.copy(noCrazyEth0Story = true) }
+
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
       implicit val config: Config =
@@ -253,9 +260,31 @@ object Main extends MainLike {
         sys.props.put("org.slf4j.simpleLogger.defaultLogLevel", "error")
 //      }
 
+      if (!config.isLaptop && !config.noCrazyEth0Story) {
+        try {
+          eth0magic()
+        } catch {
+          case NonFatal(ex) => ex.printStackTrace()
+        }
+      }
+
       val localSocketAddress = Network.mkOwnSocket(0)
       run(localSocketAddress)
     }
+  }
+
+  private def eth0magic()(implicit config: Config): Unit = {
+    println("Attempting some eth0 magic...")
+
+    def ifConfig(mode: String): Unit = {
+      val pr = IO.process("sudo", args = List("ifconfig", "eth0", "down"), timeOutSec = 10)(_ => ())
+      Await.ready(pr, Duration(12, TimeUnit.SECONDS))
+    }
+
+    ifConfig("down")
+    Thread.sleep(4000L)
+    val host = config.ownSocket.fold("192.168.0.20")(_.getHostString)
+    ifConfig(host)
   }
 
   def run(localSocketAddress: InetSocketAddress)(implicit config: Config): Unit = {

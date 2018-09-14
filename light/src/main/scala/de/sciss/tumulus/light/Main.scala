@@ -93,9 +93,30 @@ object Main extends MainLike {
         .text(s"Brightness level of LEDs (default: ${default.ledBrightness})")
         .validate { v => if (v >= 1 && v <= 255) success else failure("Must be >= 1 and <= 255") }
         .action { (v, c) => c.copy(ledBrightness = v) }
+
+      opt[String]("sound-mac-address")
+        .text(s"MAC address of sound computer (default: ${default.soundMAC})")
+        .action { (v, c) => c.copy(soundMAC = v) }
+
+      opt[Unit]("no-wake-on-lan")
+        .text("Do not use wakeonlan to wake up sound computer.")
+        .action { (_, c) => c.copy(wakeOnLAN = false) }
     }
     p.parse(args, default).fold(sys.exit(1)) { implicit config =>
       println(s"$name - $fullVersion")
+
+      if (config.wakeOnLAN) {
+        for (i <- 1 to 3)
+          try {
+            Thread.sleep(1000)
+            import sys.process._
+            Seq("wakeonlan", config.soundMAC).!
+          } catch {
+            case NonFatal(ex) =>
+              Console.err.println(s"Failed to call wakeonlan (attempt $i")
+              ex.printStackTrace()
+          }
+      }
 
       if (config.disableEnergySaving && !config.isLaptop) {
         import sys.process._

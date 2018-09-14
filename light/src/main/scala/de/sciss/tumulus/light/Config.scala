@@ -57,6 +57,8 @@ final case class Config(isLaptop            : Boolean   = false,
                         sftpPass            : String    = "",
                         sftpHost            : String    = "ssh.strato.de",
                         sftpFinger          : String    = "70:87:7d:47:68:6d:b6:b3:bc:1c:3f:1d:d8:a5:d2:2d",
+                        soundMAC            : String    = "ac:87:a3:18:a3:60",
+                        wakeOnLAN           : Boolean   = true,
                        ) extends ConfigLike {
 
   def qJackCtl    : Boolean = false
