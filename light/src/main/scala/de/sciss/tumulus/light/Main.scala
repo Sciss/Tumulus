@@ -16,7 +16,7 @@ package de.sciss.tumulus.light
 import java.net.InetSocketAddress
 
 import de.sciss.osc
-import de.sciss.tumulus.{IO, MainLike, Network}
+import de.sciss.tumulus.{IO, Light, MainLike, Network, ScreenLight}
 
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -123,7 +123,11 @@ object Main extends MainLike {
 //    oscCfg.localPort  = config.oscPort
     oscCfg.localSocketAddress = localSocketAddress
     val rcv           = osc.UDP.Receiver(oscCfg)
-    val light         = Light()
+    val light: Light  = {
+      if (config.isLaptop)  ScreenLight ()
+      else                  RaspiLight  ()
+    }
+
     rcv.action        = (p, _) => p match {
       case osc.Message("/led", rest @ _*) =>
         val rgbB = Vector.newBuilder[Int]

@@ -15,6 +15,7 @@ package de.sciss.tumulus.light
 
 import de.cacodaemon.rpiws28114j.{WS2811, WS2811Channel}
 import de.sciss.kollflitz.Vec
+import de.sciss.tumulus.Light
 
 object RaspiLight {
   def apply()(implicit config: Config): Light = new Impl(config)

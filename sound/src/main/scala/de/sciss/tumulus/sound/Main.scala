@@ -37,7 +37,11 @@ object Main extends MainLike {
     val w = mainWindow
     if (w == null) println(s"[status] $s")
     else defer {
-      w.setStatus(s)
+      try {
+        w.setStatus(s)
+      } catch {
+        case _: Exception =>
+      }
     }
   }
 
@@ -142,22 +146,40 @@ object Main extends MainLike {
           val addr = Network.parseSocket(v).right.get
           c.copy(ownSocket = Some(addr))
         }
+
+      opt[Seq[Double]]("chan-amp")
+        .text (s"Peak channel amplitudes in decibels, (default: ${default.chanAmps.mkString(",")})")
+        .action { (v, c) => c.copy(chanAmps = v.toList) }
+
+      opt[Double]("limiter-boost")
+        .text(s"Limiter boost in decibels (default: ${default.boostLimDb})")
+        .action { (v, c) => c.copy(boostLimDb = v) }
+
+      opt[Double]("spl-loudness")
+        .text(s"Assumes SPL for loudness calculation (default: ${default.splLoud})")
+        .action { (v, c) => c.copy(splLoud = v) }
+
+      opt[Double]("ref-loudness")
+        .text(s"Targeted reference loudness for sound rendering (default: ${default.refLoud})")
+        .action { (v, c) => c.copy(refLoud = v) }
+
+      opt[Double]("hpf")
+        .text(s"High pass filter frequency in Hz (default: ${default.highPassHz})")
+        .action { (v, c) => c.copy(highPassHz = v) }
+
+      opt[Double]("photo-percentile")
+        .text(s"Photo threshold percentile (0 to 1) (default: ${default.photoThreshPerc})")
+        .validate { v => if (v >= 0.0 && v <= 1.0) success else failure("Must be >= 0 and <= 1") }
+        .action { (v, c) => c.copy(photoThreshPerc = v) }
+
+      opt[Double]("photo-factor")
+        .text(s"Photo threshold comparison factor (default: ${default.photoThreshFactor})")
+        .validate { v => if (v > 0.0 && v <= 2.0) success else failure("Must be > 0 and <= 2") }
+        .action { (v, c) => c.copy(photoThreshFactor = v) }
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
       implicit val config: Config =
         SFTP.resolveConfig(config0)((u, p) => config0.copy(sftpUser = u, sftpPass = p))
-
-//      if (config.disableEnergySaving && !config.isLaptop) {
-//        import sys.process._
-//        try {
-//          Seq("xset", "s", "off").!
-//          Seq("xset", "-dpms").!
-//        } catch {
-//          case NonFatal(ex) =>
-//            Console.err.println("Cannot disable energy settings")
-//            ex.printStackTrace()
-//        }
-//      }
 
 //      if (!config.verbose) {
 //        sys.props.put("org.slf4j.simpleLogger.defaultLogLevel", "error")

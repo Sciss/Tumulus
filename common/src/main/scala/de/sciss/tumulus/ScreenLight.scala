@@ -1,5 +1,5 @@
 /*
- *  LaptopLight.scala
+ *  ScreenLight.scala
  *  (Tumulus)
  *
  *  Copyright (c) 2018 Hanns Holger Rutz. All rights reserved.
@@ -11,7 +11,7 @@
  *  contact@sciss.de
  */
 
-package de.sciss.tumulus.light
+package de.sciss.tumulus
 
 import java.awt.Color
 
@@ -20,8 +20,8 @@ import javax.swing.WindowConstants
 
 import scala.swing.{Component, Dimension, Frame, Graphics2D, GridPanel, Swing}
 
-object LaptopLight {
-  def apply()(implicit config: Config): Light = new Impl(config)
+object ScreenLight {
+  def apply()(implicit config: ConfigLike): Light = new Impl(config)
 
   private final class LED extends Component {
     preferredSize = new Dimension(20, 20)
@@ -44,7 +44,7 @@ object LaptopLight {
       foreground = new Color(i)
   }
 
-  private final class Impl(config: Config) extends Light {
+  private final class Impl(config: ConfigLike) extends Light {
     private[this] var leds: Vec[LED] = _
 
     Swing.onEDT {

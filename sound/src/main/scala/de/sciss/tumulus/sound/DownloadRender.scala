@@ -13,19 +13,21 @@
 
 package de.sciss.tumulus.sound
 
+import java.util.concurrent.TimeUnit
+
 import de.sciss.file._
 import de.sciss.fscape.graph.ImageFile
 import de.sciss.kollflitz.Vec
 import de.sciss.processor.impl.ProcessorImpl
 import de.sciss.processor.{Processor, ProcessorLike}
+import de.sciss.synth.io.{AudioFile, AudioFileSpec}
+import de.sciss.tumulus.sound.Main.{downloadDir, setStatus}
 import de.sciss.tumulus.{IO, MainLike, PhotoSettings, SFTP}
 
 import scala.annotation.tailrec
-import scala.concurrent.{Await, blocking}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, blocking}
 import scala.util.{Failure, Success, Try}
-import Main.downloadDir
-import de.sciss.synth.io.{AudioFile, AudioFileSpec}
 
 object DownloadRender {
   def apply()(implicit config: Config, main: MainLike): DownloadRender = {
@@ -103,6 +105,7 @@ object DownloadRender {
     private def bodyListFiles(): Vec[String] = {
       val list0: List[SFTP.Entry] = listFiles()
       val nameSet = list0.iterator.filter(e => e.isFile && e.size > 0L).map(_.name).toSet
+      // XXX TODO --- remove entries that have already been downloaded
 
       def mkBase(name: String): String = {
         val i = name.indexOf(".")
@@ -119,7 +122,9 @@ object DownloadRender {
         case n if entryComplete(n) => mkBase(n)
       } .toSet
 
-      log(s"Number of recordings online: ${baseSet.size}")
+      val infoSize = s"Number of recordings online: ${baseSet.size}"
+      log(infoSize)
+      setStatus(infoSize)
 
       checkAborted()
 
@@ -193,10 +198,35 @@ object DownloadRender {
     protected def body(): Unit = {
       val setVec = bodyListFiles()
 
-      // --------- start downloading ---------
-
       setVec.foreach { base =>
         val localOpt = bodyDownload(base)
+        localOpt.foreach { local =>
+          val fOutSound = Player.resonanceFile(local.base)
+          val soundOk = (for {
+            soundPr <- tryPrint(SoundRenderer.run(fIn = local.fSound, specIn = local.audioSpec, fOut = fOutSound))
+            _       <- tryPrint(Await.result(soundPr, Duration(2, TimeUnit.MINUTES)))
+          } yield ()).isSuccess
+
+          checkAborted()
+
+          if (soundOk) {
+            val fOutPixels = Player.colorsFile(local.base)
+            val pixelsOk = (for {
+              pixelsPr <- tryPrint(PixelRenderer.run(fIn = local.fPhoto, specIn = local.imageSpec,
+                                    photoSettings = local.meta, fOutColor = fOutPixels))
+              _        <- tryPrint(Await.result(pixelsPr, Duration(2, TimeUnit.MINUTES)))
+            } yield ()).isSuccess
+
+            if (pixelsOk) {
+              val fOk   = Player.okFile(local.base)
+              val okOk  = tryPrint(fOk.createNewFile()).isSuccess
+
+              if (okOk) {
+                setStatus(s"Rendered '$base'.")
+              }
+            }
+          }
+        }
       }
     }
   }

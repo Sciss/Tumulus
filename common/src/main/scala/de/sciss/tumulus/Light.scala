@@ -11,15 +11,15 @@
  *  contact@sciss.de
  */
 
-package de.sciss.tumulus.light
+package de.sciss.tumulus
 
 import de.sciss.kollflitz.Vec
 
-object Light {
-  def apply()(implicit config: Config): Light =
-    if (config.isLaptop)  LaptopLight()
-    else                  RaspiLight()
-}
+//object Light {
+//  def apply()(implicit config: ConfigLike): Light =
+//    if (config.isLaptop)  ScreenLight()
+//    else                  RaspiLight()
+//}
 trait Light {
   def setRGB(xs: Vec[Int]): Unit
 }
