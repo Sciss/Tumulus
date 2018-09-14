@@ -13,6 +13,8 @@
 
 package de.sciss.tumulus.sound
 
+import java.awt.Color
+
 import de.sciss.kollflitz.Vec
 import de.sciss.lucre.stm.TxnLike.{peer => stmPeer}
 import de.sciss.lucre.swing.deferTx
@@ -28,9 +30,11 @@ import javax.swing.SpinnerNumberModel
 
 import scala.concurrent.stm.Ref
 import scala.swing.event.{ButtonClicked, ValueChanged}
-import scala.swing.{BorderPanel, BoxPanel, Button, FlowPanel, Frame, GridPanel, Label, Orientation, ToggleButton}
+import scala.swing.{Alignment, BorderPanel, BoxPanel, Button, FlowPanel, Frame, GridPanel, Label, Orientation, ToggleButton}
 
-class MainWindow(as: AuralSystem, light: LightDispatch, oscT: osc.UDP.Transmitter.Undirected)(implicit config: Config) {
+class MainWindow(as: AuralSystem, light: LightDispatch, oscT: osc.UDP.Transmitter.Undirected, sch: Schedule)
+                (implicit config: Config) {
+
   private[this] val ggServer  = new ServerStatusPanel
   private[this] val pTop      = new BoxPanel(Orientation.Vertical) {
     contents += ggServer
@@ -56,6 +60,25 @@ class MainWindow(as: AuralSystem, light: LightDispatch, oscT: osc.UDP.Transmitte
     val vec: Vec[Int] = Vector.fill(config.ledCount)(0)
     light.setRGB(vec)
   }
+
+  private[this] val ggShutdownPi = Button("Shutdown Pi") {
+    Main.shutdownPi()
+  }
+
+  private[this] val ggRebootPi = Button("Reboot Pi") {
+    Main.rebootPi()
+  }
+
+  private[this] val ggShutdown = Button("Shutdown All") {
+    Main.shutdownAll()
+  }
+
+  private[this] val ggHibernate = Button("Hibernate") {
+    val code = Main.hibernateSelf()
+    Main.setStatus(s"suspend-hybrid returned with $code")
+  }
+
+  private[this] val pPower = new FlowPanel(ggShutdownPi, ggRebootPi, ggShutdown, ggHibernate)
 
   private[this] val synthRef = Ref(Option.empty[Synth])
 
@@ -106,9 +129,7 @@ class MainWindow(as: AuralSystem, light: LightDispatch, oscT: osc.UDP.Transmitte
 
   private def setMasterGain(linear: Double): Unit =
     atomic { implicit tx =>
-      as.serverOption.foreach { s =>
-        s.defaultGroup.set("master-amp" -> linear)
-      }
+      Player.setMasterVolume(as, linear)
     }
 
   private[this] val ggMasterMute = new ToggleButton("Mute") {
@@ -139,10 +160,25 @@ class MainWindow(as: AuralSystem, light: LightDispatch, oscT: osc.UDP.Transmitte
     res
   }
 
-  private[this] val pBottom = new GridPanel(3, 1) {
+  private[this] val lbSchedStarted    = new Label(s"Started: ${sch.dateStarted}"  , null, Alignment.Trailing)
+  private[this] val lbSchedStopSound  = new Label(s"Stop sound: ${sch.dateStopSound}", null, Alignment.Trailing)
+  private[this] val lbSchedStopLight  = new Label(s"Stop light: ${sch.dateStopLight}", null, Alignment.Trailing)
+  private[this] val lbSched = new GridPanel(3, 1) {
+    contents ++= List(lbSchedStarted, lbSchedStopSound, lbSchedStopLight)
+  }
+
+  private[this] val ggCancelSched = Button("Cancel Schedule") {
+    sch.cancel()
+    lbSchedStopSound.foreground = Color.red
+    lbSchedStopLight.foreground = Color.red
+  }
+
+  private[this] val pBottom = new GridPanel(0, 1) {
     vGap = 4
     contents += new FlowPanel(ggMasterMute, new Label("Master gain [dB]:"), ggMasterGain)
     contents += new FlowPanel(ggLightTest, ggLightOff, new Label("Test chan.:"), ggSoundChan)
+    contents += new FlowPanel(lbSched, ggCancelSched)
+    contents += pPower
     contents += lbStatus
   }
 

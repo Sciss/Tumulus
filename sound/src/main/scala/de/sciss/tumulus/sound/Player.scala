@@ -19,7 +19,7 @@ import de.sciss.lucre.stm.TxnLike.peer
 import de.sciss.lucre.synth.{Buffer, Server, Synth, Txn}
 import de.sciss.numbers.Implicits._
 import de.sciss.synth.proc.AuralSystem
-import de.sciss.synth.{SynthGraph, addToHead, ugen}
+import de.sciss.synth.{SynthGraph, addToHead, addToTail, ugen}
 import de.sciss.tumulus.Light
 import de.sciss.tumulus.sound.Main.{atomic, backupDir, renderDir}
 
@@ -35,6 +35,24 @@ object Player {
 //  def bakOkFile       (base: String): File = backupDir / okFile       (base).name
 
   def inBackup(f: File): File = backupDir / f.name
+
+  def startMaster(s: Server)(implicit tx: Txn, config: Config): Unit = {
+    val g = SynthGraph {
+      import de.sciss.synth.Ops.stringToControl
+      import ugen._
+      val in    = In.ar(0, config.numChannels)
+      val amp   = "master-amp".kr(config.masterGainDb.dbAmp)
+      val sig0  = in * amp
+      val sig   = Limiter.ar(sig0, level = config.masterLimiterDb.dbAmp)
+      ReplaceOut.ar(0, sig)
+    }
+    Synth.playOnce(g, nameHint = Some("master"))(target = s.defaultGroup, addAction = addToTail)
+  }
+
+  def setMasterVolume(as: AuralSystem, ampLin: Double)(implicit tx: Txn): Unit =
+    as.serverOption.foreach { s =>
+      s.defaultGroup.set("master-amp" -> ampLin)
+    }
 
   final case class Entry(base: String, fResonance: File, fColors: File, colors: Vec[Int]) {
     def fOk: File = okFile(base)

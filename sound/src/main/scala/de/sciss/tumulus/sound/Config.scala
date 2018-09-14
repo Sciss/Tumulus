@@ -1,3 +1,16 @@
+/*
+ *  Config.scala
+ *  (Tumulus)
+ *
+ *  Copyright (c) 2018 Hanns Holger Rutz. All rights reserved.
+ *
+ *  This software is published under the GNU Affero General Public License v3+
+ *
+ *
+ *  For further information, please contact Hanns Holger Rutz at
+ *  contact@sciss.de
+ */
+
 package de.sciss.tumulus.sound
 
 import java.net.InetSocketAddress
@@ -37,6 +50,11 @@ final case class Config(isLaptop          : Boolean   = false,
                         ledGainBlue       : Double    = 0.56,
                         noDownloads       : Boolean   = false,
                         ledNormPow        : Double    = 0.5,
+                        soundStopWeekdays : TimeOfDay = TimeOfDay(20, 0),
+                        soundStopWeekend  : TimeOfDay = TimeOfDay(20, 0),
+                        lightStopWeekdays : TimeOfDay = TimeOfDay(22, 0),
+                        lightStopWeekend  : TimeOfDay = TimeOfDay(22, 0),
+                        noSchedule        : Boolean   = false,
 ) extends ConfigLike {
 
   def sftpAddress(path: String): String = s"$sftpUser@$sftpHost:$path"

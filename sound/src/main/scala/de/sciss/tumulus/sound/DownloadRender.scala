@@ -18,10 +18,10 @@ import java.util.concurrent.TimeUnit
 import de.sciss.file._
 import de.sciss.fscape.graph.ImageFile
 import de.sciss.kollflitz.Vec
+import de.sciss.processor.ProcessorLike
 import de.sciss.processor.impl.ProcessorImpl
-import de.sciss.processor.{Processor, ProcessorLike}
 import de.sciss.synth.io.{AudioFile, AudioFileSpec}
-import de.sciss.tumulus.sound.Main.{atomic, downloadDir, setStatus}
+import de.sciss.tumulus.sound.Main.{atomic, downloadDir, setStatus, tryPrint}
 import de.sciss.tumulus.sound.Player.inBackup
 import de.sciss.tumulus.{IO, MainLike, PhotoSettings, SFTP}
 
@@ -64,18 +64,6 @@ object DownloadRender {
         }
       }
       res
-    }
-
-    private def tryPrint[A](body: => A): Try[A] =
-      printError(Try(body))
-
-    private def printError[A](tr: Try[A]): Try[A] = {
-      tr match {
-        case Failure(Processor.Aborted()) =>
-        case Failure(ex)                  => ex.printStackTrace()
-        case _                            =>
-      }
-      tr
     }
 
     private def waitSome(): Unit =
@@ -259,15 +247,17 @@ object DownloadRender {
     def fSound: File = downloadDir / wavName  (base)
     def fPhoto: File = downloadDir / photoName(base)
 
+    def fFLAC : File = downloadDir / flacName (base)
+
     private def moveToBackup(f: File): Unit = {
       val ok = f.renameTo(inBackup(f))
       if (!ok) f.delete()
     }
 
     def moveToBackup(): Unit = {
-      moveToBackup(fSound)
-      moveToBackup(fPhoto)
-      moveToBackup(flacName(base))
+      moveToBackup(fSound )
+      moveToBackup(fPhoto )
+      moveToBackup(fFLAC  )
     }
   }
 }

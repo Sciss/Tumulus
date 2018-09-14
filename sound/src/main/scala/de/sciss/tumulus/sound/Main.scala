@@ -17,12 +17,11 @@ import java.net.InetSocketAddress
 
 import de.sciss.file._
 import de.sciss.lucre.swing.defer
-import de.sciss.lucre.synth.{Server, Synth, Txn}
-import de.sciss.numbers.Implicits._
+import de.sciss.lucre.synth.{Server, Txn}
 import de.sciss.osc
+import de.sciss.processor.Processor
 import de.sciss.submin.Submin
 import de.sciss.synth.proc.AuralSystem
-import de.sciss.synth.{SynthGraph, addToTail, ugen}
 import de.sciss.tumulus.{MainLike, Network, SFTP, UI}
 
 import scala.concurrent.ExecutionContext
@@ -35,6 +34,9 @@ object Main extends MainLike {
 
   @volatile
   private[this] var mainWindow: MainWindow = _
+
+  @volatile
+  private[this] var oscT: osc.UDP.Transmitter.Undirected = _
 
   def setStatus(s: String): Unit = {
     val w = mainWindow
@@ -218,6 +220,22 @@ object Main extends MainLike {
         .text(s"LED color normalization power factor (default: ${default.ledNormPow})")
         .validate { v => if (v > 0.0 && v <= 1.0) success else failure("Must be > 0 and <= 1") }
         .action { (v, c) => c.copy(ledNormPow = v) }
+
+      opt[TimeOfDay]("stop-sound-weekdays")
+        .text(s"Scheduled time to stop sound on weekdays (default: ${default.soundStopWeekdays}")
+        .action { (v, c) => c.copy(soundStopWeekdays = v) }
+
+      opt[TimeOfDay]("stop-sound-weekend")
+        .text(s"Scheduled time to stop sound on weekdays (default: ${default.soundStopWeekend}")
+        .action { (v, c) => c.copy(soundStopWeekend = v) }
+
+      opt[TimeOfDay]("stop-light-weekdays")
+        .text(s"Scheduled time to stop light on weekdays (default: ${default.lightStopWeekdays}")
+        .action { (v, c) => c.copy(lightStopWeekdays = v) }
+
+      opt[TimeOfDay]("stop-light-weekend")
+        .text(s"Scheduled time to stop light on weekdays (default: ${default.lightStopWeekend}")
+        .action { (v, c) => c.copy(lightStopWeekend = v) }
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
       implicit val config: Config =
@@ -248,20 +266,52 @@ object Main extends MainLike {
         Failure(ex)
     }
 
-  private def startMaster(s: Server)(implicit tx: Txn, config: Config): Unit = {
-    val g = SynthGraph {
-      import de.sciss.synth.Ops.stringToControl
-      import ugen._
-      val in    = In.ar(0, config.numChannels)
-      val amp   = "master-amp".kr(config.masterGainDb.dbAmp)
-      val sig0  = in * amp
-      val sig   = Limiter.ar(sig0, level = config.masterLimiterDb.dbAmp)
-      ReplaceOut.ar(0, sig)
-    }
-    Synth.playOnce(g, nameHint = Some("master"))(target = s.defaultGroup, addAction = addToTail)
+  def quit(): Unit = sys.exit()
+
+  def shutdownPi()(implicit config: Config): Boolean = sendPiMessage("/shutdown")
+  def rebootPi  ()(implicit config: Config): Boolean = sendPiMessage("/reboot")
+
+  def shutdownAll()(implicit config: Config): Unit = {
+    shutdownPi()
+    shutdownSelf()
   }
 
-  def quit(): Unit = sys.exit()
+  def shutdownSelf(): Unit = {
+    import sys.process._
+    println("SHUTDOWN")
+    Seq("sudo", "shutdown", "now").run()
+  }
+
+  def rebootSelf(): Unit = {
+    import sys.process._
+    println("REBOOT")
+    Seq("sudo", "reboot", "now").run()
+  }
+
+  def hibernateSelf(): Int = {
+    import sys.process._
+    println("SUSPEND-HYBRID")
+    Seq("sudo", "pm-suspend-hybrid").!
+  }
+
+  private def sendPiMessage(cmd: String)(implicit config: Config): Boolean = {
+    val _oscT = oscT
+    (_oscT != null) && tryPrint({
+      _oscT.send(osc.Message(cmd), config.lightSocket)
+    }).isSuccess
+  }
+
+  def tryPrint[A](body: => A): Try[A] =
+    printError(Try(body))
+
+  private def printError[A](tr: Try[A]): Try[A] = {
+    tr match {
+      case Failure(Processor.Aborted()) =>
+      case Failure(ex)                  => ex.printStackTrace()
+      case _                            =>
+    }
+    tr
+  }
 
   def init(localSocketAddress: InetSocketAddress)(implicit config: Config): Unit = {
     val as                  = AuralSystem()
@@ -277,7 +327,7 @@ object Main extends MainLike {
         def booted(s: Server)(implicit tx: Txn): Unit = {
           tx.afterCommit(println("Server booted (Main)."))
           for (_ <- 0 until 4) s.nextNodeId() // XXX TODO
-          startMaster(s)
+          Player.startMaster(s)
         }
       })
       as.start(sCfg)
@@ -285,20 +335,23 @@ object Main extends MainLike {
 
     val oscTCfg                 = osc.UDP.Config()
     oscTCfg.localSocketAddress  = localSocketAddress
-    val oscT                    = osc.UDP.Transmitter(oscTCfg)
+    val _oscT                   = osc.UDP.Transmitter(oscTCfg)
+    oscT = _oscT
 
-    val light = new LightDispatch(oscT)
+    val light = new LightDispatch(_oscT)
 
-    attempt("connect OSC transmitter")(oscT.connect())
+    attempt("connect OSC transmitter")(_oscT.connect())
 
     val playerTr = attempt("start player")(Player(as, light))
 
-    if (!config.noDownloads) {
-      playerTr.foreach { player =>
+    val downloadOpt = if (config.noDownloads) None else {
+      playerTr.flatMap { player =>
         attempt("launch download-render")(DownloadRender(player))
-      }
+      } .toOption
     }
 
-    mainWindow = new MainWindow(as, light, oscT)
+    val sch = Schedule(as, downloadOpt, playerTr.toOption)
+
+    mainWindow = new MainWindow(as, light, _oscT, sch)
   }
 }
