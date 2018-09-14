@@ -17,15 +17,18 @@ import java.net.InetSocketAddress
 
 import de.sciss.file._
 import de.sciss.lucre.swing.defer
-import de.sciss.lucre.synth.{Server, Txn}
+import de.sciss.lucre.synth.{Server, Synth, Txn}
+import de.sciss.numbers.Implicits._
 import de.sciss.osc
 import de.sciss.submin.Submin
 import de.sciss.synth.proc.AuralSystem
+import de.sciss.synth.{SynthGraph, addToTail, ugen}
 import de.sciss.tumulus.{MainLike, Network, SFTP, UI}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.stm.TxnExecutor
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 object Main extends MainLike {
   implicit def ec: ExecutionContext = ExecutionContext.global
@@ -148,8 +151,8 @@ object Main extends MainLike {
         }
 
       opt[Seq[Double]]("chan-amp")
-        .text (s"Peak channel amplitudes in decibels, (default: ${default.chanAmps.mkString(",")})")
-        .action { (v, c) => c.copy(chanAmps = v.toList) }
+        .text (s"Peak channel amplitudes in decibels, (default: ${default.chanAmpsDb.mkString(",")})")
+        .action { (v, c) => c.copy(chanAmpsDb = v.toVector) }
 
       opt[Double]("limiter-boost")
         .text(s"Limiter boost in decibels (default: ${default.boostLimDb})")
@@ -176,13 +179,48 @@ object Main extends MainLike {
         .text(s"Photo threshold comparison factor (default: ${default.photoThreshFactor})")
         .validate { v => if (v > 0.0 && v <= 2.0) success else failure("Must be > 0 and <= 2") }
         .action { (v, c) => c.copy(photoThreshFactor = v) }
+
+      opt[Int]("max-pool-size")
+        .text(s"Maximum sound/color pool size (default: ${default.maxPoolSize})")
+        .validate { v => if (v >= 1 && v <= 0x7FFFFFFF) success else failure("Must be >= 1") }
+        .action { (v, c) => c.copy(maxPoolSize = v) }
+
+      opt[Double]("master-gain")
+        .text(s"Master gain setting in decibels (default: ${default.masterGainDb})")
+        .validate { v => if (v <= 0.0) success else failure("Must be <= 0") }
+        .action { (v, c) => c.copy(masterGainDb = v) }
+
+      opt[Double]("master-limiter")
+        .text(s"Master limiter ceiling in dBFS (default: ${default.masterLimiterDb})")
+        .validate { v => if (v <= 0.0) success else failure("Must be <= 0") }
+        .action { (v, c) => c.copy(masterLimiterDb = v) }
+
+      opt[Double]("led-gain-red")
+        .text(s"Linear gain factor for the red LEDs (default: ${default.ledGainRed})")
+        .validate { v => if (v > 0.0 && v <= 2.0) success else failure("Must be > 0 and <= 2") }
+        .action { (v, c) => c.copy(ledGainRed = v) }
+
+      opt[Double]("led-gain-green")
+        .text(s"Linear gain factor for the green LEDs (default: ${default.ledGainGreen})")
+        .validate { v => if (v > 0.0 && v <= 2.0) success else failure("Must be > 0 and <= 2") }
+        .action { (v, c) => c.copy(ledGainGreen = v) }
+
+      opt[Double]("led-gain-blue")
+        .text(s"Linear gain factor for the blue LEDs (default: ${default.ledGainBlue})")
+        .validate { v => if (v > 0.0 && v <= 2.0) success else failure("Must be > 0 and <= 2") }
+        .action { (v, c) => c.copy(ledGainBlue = v) }
+
+      opt[Unit]("no-downloads")
+        .text("Do not start download process")
+        .action { (_, c) => c.copy(noDownloads = true) }
+
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
       implicit val config: Config =
         SFTP.resolveConfig(config0)((u, p) => config0.copy(sftpUser = u, sftpPass = p))
 
 //      if (!config.verbose) {
-//        sys.props.put("org.slf4j.simpleLogger.defaultLogLevel", "error")
+        sys.props.put("org.slf4j.simpleLogger.defaultLogLevel", "error")
 //      }
 
       val localSocketAddress = Network.mkOwnSocket(0)
@@ -190,14 +228,36 @@ object Main extends MainLike {
     }
   }
 
-  def booted(s: Server)(implicit tx: Txn, config: Config): Unit = {
-    println("TODO: booted")
-  }
-
   def run(localSocketAddress: InetSocketAddress)(implicit config: Config): Unit = {
     Submin.install(true)
     UI.launchUIWithJack(init(localSocketAddress))
   }
+
+  private def attempt[A](what: String)(thunk: => A): Try[A] =
+    try {
+      val res = thunk
+      Success(res)
+    } catch {
+      case NonFatal(ex) =>
+        println(s"!! Could not $what:")
+        ex.printStackTrace()
+        Failure(ex)
+    }
+
+  private def startMaster(s: Server)(implicit tx: Txn, config: Config): Unit = {
+    val g = SynthGraph {
+      import de.sciss.synth.Ops.stringToControl
+      import ugen._
+      val in    = In.ar(0, config.numChannels)
+      val amp   = "master-amp".kr(config.masterGainDb.dbAmp)
+      val sig0  = in * amp
+      val sig   = Limiter.ar(sig0, level = config.masterLimiterDb.dbAmp)
+      ReplaceOut.ar(0, sig)
+    }
+    Synth.playOnce(g, nameHint = Some("master"))(target = s.defaultGroup, addAction = addToTail)
+  }
+
+  def quit(): Unit = sys.exit()
 
   def init(localSocketAddress: InetSocketAddress)(implicit config: Config): Unit = {
     val as                  = AuralSystem()
@@ -206,29 +266,32 @@ object Main extends MainLike {
     sCfg.inputBusChannels   = 0
     sCfg.outputBusChannels  = config.numChannels
 
+    de.sciss.synth.proc.showAuralLog = true
+
     atomic { implicit tx =>
-      as.whenStarted(booted(_))
+      as.addClient(new ServerUser("main") {
+        def booted(s: Server)(implicit tx: Txn): Unit = {
+          tx.afterCommit(println("Server booted (Main)."))
+          for (_ <- 0 until 4) s.nextNodeId() // XXX TODO
+          startMaster(s)
+        }
+      })
       as.start(sCfg)
     }
 
-    try {
-      DownloadRender()
-    } catch {
-      case NonFatal(ex) =>
-        println("!! Could not launch download-render:")
-        ex.printStackTrace()
+    val playerTr = attempt("start player")(Player(as))
+
+    if (!config.noDownloads) {
+      playerTr.foreach { player =>
+        attempt("launch download-render")(DownloadRender(player))
+      }
     }
 
     val oscTCfg                 = osc.UDP.Config()
     oscTCfg.localSocketAddress  = localSocketAddress
     val oscT                    = osc.UDP.Transmitter(oscTCfg)
-    try {
-      oscT.connect()
-    } catch {
-      case NonFatal(ex) =>
-        println("!! Could not connect OSC transmitter:")
-        ex.printStackTrace()
-    }
+
+    attempt("connect OSC transmitter")(oscT.connect())
 
     mainWindow = new MainWindow(as, oscT)
   }

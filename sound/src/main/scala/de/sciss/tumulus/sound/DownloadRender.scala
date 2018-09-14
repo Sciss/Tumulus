@@ -21,7 +21,7 @@ import de.sciss.kollflitz.Vec
 import de.sciss.processor.impl.ProcessorImpl
 import de.sciss.processor.{Processor, ProcessorLike}
 import de.sciss.synth.io.{AudioFile, AudioFileSpec}
-import de.sciss.tumulus.sound.Main.{downloadDir, setStatus}
+import de.sciss.tumulus.sound.Main.{downloadDir, setStatus, atomic}
 import de.sciss.tumulus.{IO, MainLike, PhotoSettings, SFTP}
 
 import scala.annotation.tailrec
@@ -30,15 +30,15 @@ import scala.concurrent.{Await, blocking}
 import scala.util.{Failure, Success, Try}
 
 object DownloadRender {
-  def apply()(implicit config: Config, main: MainLike): DownloadRender = {
+  def apply(player: Player)(implicit config: Config, main: MainLike): DownloadRender = {
     import Main.ec
-    val res = new Impl
+    val res = new Impl(player)
     Main.mkDirs()
     res.start()
     res
   }
 
-  private final class Impl(implicit config: Config, main: MainLike)
+  private final class Impl(player: Player)(implicit config: Config, main: MainLike)
     extends ProcessorImpl[Unit, DownloadRender] with DownloadRender {
 
     private[this] val sync = new AnyRef
@@ -105,21 +105,23 @@ object DownloadRender {
     private def bodyListFiles(): Vec[String] = {
       val list0: List[SFTP.Entry] = listFiles()
       val nameSet = list0.iterator.filter(e => e.isFile && e.size > 0L).map(_.name).toSet
-      // XXX TODO --- remove entries that have already been downloaded
 
       def mkBase(name: String): String = {
         val i = name.indexOf(".")
         if (name.startsWith("rec") && i < 0) "" else name.substring(0, i)
       }
 
-      def entryComplete(name: String): Boolean = {
-        val base = mkBase(name)
-        base.nonEmpty && nameSet.contains(flacName(base)) &&
+      def entryNewAndComplete(name: String): Boolean = {
+        val base      = mkBase(name)
+        val inCurrent = Player.okFile(base)
+        val isOld     = inCurrent.exists() || Player.inBackup(inCurrent).exists()
+
+        !isOld && base.nonEmpty && nameSet.contains(flacName(base)) &&
           nameSet.contains(photoName(base)) && nameSet.contains(metaName(base))
       }
 
       val baseSet = nameSet.iterator.collect {
-        case n if entryComplete(n) => mkBase(n)
+        case n if entryNewAndComplete(n) => mkBase(n)
       } .toSet
 
       val infoSize = s"Number of recordings online: ${baseSet.size}"
@@ -195,25 +197,27 @@ object DownloadRender {
       } yield ()
     }
 
+    @tailrec
     protected def body(): Unit = {
+      log("Running download check...")
       val setVec = bodyListFiles()
 
       setVec.foreach { base =>
         val localOpt = bodyDownload(base)
         localOpt.foreach { local =>
-          val fOutSound = Player.resonanceFile(local.base)
+          val fResonance = Player.resonanceFile(local.base)
           val soundOk = (for {
-            soundPr <- tryPrint(SoundRenderer.run(fIn = local.fSound, specIn = local.audioSpec, fOut = fOutSound))
+            soundPr <- tryPrint(SoundRenderer.run(fIn = local.fSound, specIn = local.audioSpec, fOut = fResonance))
             _       <- tryPrint(Await.result(soundPr, Duration(2, TimeUnit.MINUTES)))
           } yield ()).isSuccess
 
           checkAborted()
 
           if (soundOk) {
-            val fOutPixels = Player.colorsFile(local.base)
+            val fColors = Player.colorsFile(local.base)
             val pixelsOk = (for {
               pixelsPr <- tryPrint(PixelRenderer.run(fIn = local.fPhoto, specIn = local.imageSpec,
-                                    photoSettings = local.meta, fOutColor = fOutPixels))
+                                    photoSettings = local.meta, fOutColor = fColors))
               _        <- tryPrint(Await.result(pixelsPr, Duration(2, TimeUnit.MINUTES)))
             } yield ()).isSuccess
 
@@ -223,11 +227,19 @@ object DownloadRender {
 
               if (okOk) {
                 setStatus(s"Rendered '$base'.")
+                val pe = Player.Entry(base = base, fResonance = fResonance, fColors = fColors)
+                atomic { implicit tx =>
+                  player.inject(pe)
+                }
               }
             }
           }
         }
       }
+
+      log("All downloaded. Waiting for an hour.")
+      blocking(Thread.sleep(60 * 60 * 1000L)) // check again in an hour
+      body()
     }
   }
 

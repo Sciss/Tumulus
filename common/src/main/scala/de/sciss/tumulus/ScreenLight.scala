@@ -13,7 +13,7 @@
 
 package de.sciss.tumulus
 
-import java.awt.Color
+import java.awt.{Color, EventQueue}
 
 import de.sciss.kollflitz.Vec
 import javax.swing.WindowConstants
@@ -21,7 +21,10 @@ import javax.swing.WindowConstants
 import scala.swing.{Component, Dimension, Frame, Graphics2D, GridPanel, Swing}
 
 object ScreenLight {
-  def apply()(implicit config: ConfigLike): Light = new Impl(config)
+  def component()(implicit config: ConfigLike): ScreenLight =
+    new ComponentImpl(config)
+
+  def apply()(implicit config: ConfigLike): Light /* ScreenLight */ = new Impl(config)
 
   private final class LED extends Component {
     preferredSize = new Dimension(20, 20)
@@ -44,19 +47,36 @@ object ScreenLight {
       foreground = new Color(i)
   }
 
-  private final class Impl(config: ConfigLike) extends Light {
-    private[this] var leds: Vec[LED] = _
+  private final class ComponentImpl(config: ConfigLike) extends GridPanel(config.ledGroups, config.ledPerGroup)
+    with ScreenLight {
+
+    def component: Component = this
+
+    private[this] val leds: Vec[LED] = Vector.fill(config.ledCount)(new LED)
+
+    hGap        = 4
+    vGap        = 4
+    border      = Swing.EmptyBorder(4)
+    contents  ++= leds
+
+    private def setRGBNow(xs: Vec[Int]): Unit =
+      (leds.iterator zip xs.iterator).foreach {
+        case (led, rgb) =>
+          led.setRGB(rgb)
+      }
+
+    def setRGB(xs: Vec[Int]): Unit =
+      if (EventQueue.isDispatchThread) setRGBNow(xs) else Swing.onEDT(setRGBNow(xs))
+  }
+
+  private final class Impl(config: ConfigLike) extends Light /* ScreenLight */ {
+    private[this] var c: ComponentImpl = _
 
     Swing.onEDT {
-      leds = Vector.fill(config.ledCount)(new LED)
+      c = new ComponentImpl(config)
       new Frame {
-        title = "LEDs"
-        contents = new GridPanel(config.ledGroups, config.ledPerGroup) {
-          hGap        = 4
-          vGap        = 4
-          border      = Swing.EmptyBorder(4)
-          contents  ++= leds
-        }
+        title     = "LEDs"
+        contents  = c
         resizable = false
         pack().centerOnScreen()
         open()
@@ -65,11 +85,11 @@ object ScreenLight {
       }
     }
 
-    def setRGB(xs: Vec[Int]): Unit = Swing.onEDT {
-      (leds.iterator zip xs.iterator).foreach {
-        case (led, rgb) =>
-          led.setRGB(rgb)
-      }
-    }
+//    def component: Component = c
+
+    def setRGB(xs: Vec[Int]): Unit = c.setRGB(xs)
   }
+}
+trait ScreenLight extends Light {
+  def component: Component
 }

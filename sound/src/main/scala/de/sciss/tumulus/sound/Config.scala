@@ -2,6 +2,7 @@ package de.sciss.tumulus.sound
 
 import java.net.InetSocketAddress
 
+import de.sciss.kollflitz.Vec
 import de.sciss.tumulus.{ConfigLike, IO}
 
 final case class Config(isLaptop          : Boolean   = false,
@@ -21,7 +22,7 @@ final case class Config(isLaptop          : Boolean   = false,
                         lightHost         : String    = IO.defaultLightHost,
                         lightPort         : Int       = IO.defaultLightPort,
                         ownSocket         : Option[InetSocketAddress] = None,
-                        chanAmps          : List[Double] = List(-24.0, -24.0, -24.0, -24.0, -24.0, -24.0, -20.0, -18.0, -18.0, -20.0, -16.0, -18.0),
+                        chanAmpsDb        : Vec[Double] = Vec(-24.0, -24.0, -24.0, -24.0, -24.0, -24.0, -20.0, -18.0, -18.0, -20.0, -16.0, -18.0),
                         boostLimDb        : Double    = 18.0,
                         splLoud           : Double    = 55.0,
                         refLoud           : Double    = 42.0,
@@ -29,6 +30,12 @@ final case class Config(isLaptop          : Boolean   = false,
                         photoThreshPerc   : Double    = 0.7,
                         photoThreshFactor : Double    = 0.7,
                         maxPoolSize       : Int       = 180,
+                        masterGainDb      : Double    = -10.5,
+                        masterLimiterDb   : Double    = -28.0,
+                        ledGainRed        : Double    = 1.0,
+                        ledGainGreen      : Double    = 0.75,
+                        ledGainBlue       : Double    = 0.56,
+                        noDownloads       : Boolean   = false,
 ) extends ConfigLike {
 
   def sftpAddress(path: String): String = s"$sftpUser@$sftpHost:$path"
