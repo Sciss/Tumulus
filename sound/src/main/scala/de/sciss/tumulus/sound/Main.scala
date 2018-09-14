@@ -82,7 +82,8 @@ object Main extends MainLike {
   def main(args: Array[String]): Unit = {
     val default = Config()
 
-    val p = new scopt.OptionParser[Config](s"$name $fullVersion") {
+    val nameVersion = s"$name $fullVersion"
+    val p = new scopt.OptionParser[Config](nameVersion) {
       opt[String]('u', "sftp-user")
         .text("SFTP user name")
         .action { (v, c) => c.copy(sftpUser = v) }
@@ -253,6 +254,8 @@ object Main extends MainLike {
 
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
+      println(nameVersion)
+
       implicit val config: Config =
         SFTP.resolveConfig(config0)((u, p) => config0.copy(sftpUser = u, sftpPass = p))
 
@@ -277,7 +280,7 @@ object Main extends MainLike {
     println("Attempting some eth0 magic...")
 
     def ifConfig(mode: String): Unit = {
-      val pr = IO.process("sudo", args = List("ifconfig", "eth0", "down"), timeOutSec = 10)(_ => ())
+      val pr = IO.process("sudo", args = List("ifconfig", "eth0", mode), timeOutSec = 10)(_ => ())
       Await.ready(pr, Duration(12, TimeUnit.SECONDS))
     }
 
