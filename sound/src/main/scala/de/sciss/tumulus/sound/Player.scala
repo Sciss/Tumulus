@@ -24,6 +24,7 @@ import de.sciss.tumulus.Light
 import de.sciss.tumulus.sound.Main.{atomic, backupDir, renderDir}
 
 import scala.concurrent.stm.{Ref, TSet}
+import scala.util.control.NonFatal
 
 object Player {
   def resonanceFile   (base: String): File = renderDir / s"$base-resonance.aif"
@@ -179,7 +180,19 @@ object Player {
           dependencies = buf :: Nil)
         syn.onEndTxn { implicit tx =>
           buf.dispose()
-          if (synSet.remove(syn) && synSet.isEmpty && running()) iterate(s)
+          if (synSet.remove(syn) && synSet.isEmpty && running()) {
+            var tries = 4
+            while (tries > 0) {
+              try {
+                iterate(s)
+                tries = 0
+              } catch {
+                case NonFatal(ex) =>
+                  ex.printStackTrace()
+                  tries -= 1
+              }
+            }
+          }
         }
         synSet.add(syn)
       }
