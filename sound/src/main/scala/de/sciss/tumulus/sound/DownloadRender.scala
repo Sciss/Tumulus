@@ -75,21 +75,21 @@ object DownloadRender {
       checkAborted()
 
       def tryMagic(): Unit = if (!didMagic) {
-        if (!config.isLaptop && !config.noCrazyEth0Story) {
-          println("TRYING SOME ETH0 MAGIC")
-          val t = new Thread {
-            override def run(): Unit =
-              try {
-                eth0down()
-                Thread.sleep(6000)
-                eth0up()
-                Thread.sleep(6000)
-              } catch {
-                case NonFatal(ex) => ex.printStackTrace()
-              }
-          }
-          t.start()
-        }
+//        if (!config.isLaptop && !config.noCrazyEth0Story) {
+//          println("TRYING SOME ETH0 MAGIC")
+//          val t = new Thread {
+//            override def run(): Unit =
+//              try {
+//                eth0down()
+//                Thread.sleep(6000)
+//                eth0up()
+//                Thread.sleep(6000)
+//              } catch {
+//                case NonFatal(ex) => ex.printStackTrace()
+//              }
+//          }
+//          t.start()
+//        }
       }
 
       val procTr = tryPrint(SFTP.list())

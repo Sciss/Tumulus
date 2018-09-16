@@ -18,17 +18,17 @@ import java.util.{Calendar, Date, Timer, TimerTask}
 
 import de.sciss.equal.Implicits._
 import de.sciss.synth.proc.AuralSystem
-import de.sciss.tumulus.IO
+import de.sciss.tumulus.{IO, Light}
 import de.sciss.tumulus.sound.Main.{atomic, tryPrint}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 object Schedule {
-  def apply(as: AuralSystem, download: Option[DownloadRender], player: Option[Player])
-           (implicit config: Config): Schedule = new Impl(as, download, player)
+  def apply(as: AuralSystem, light: Light, download: Option[DownloadRender], player: Option[Player])
+           (implicit config: Config): Schedule = new Impl(as, light, download, player)
 
-  private final class Impl(as: AuralSystem, downloadOpt: Option[DownloadRender], playerOpt: Option[Player])
+  private final class Impl(as: AuralSystem, light: Light, downloadOpt: Option[DownloadRender], playerOpt: Option[Player])
                           (implicit config: Config)
     extends Schedule {
     private[this] val time0 = Calendar.getInstance()
@@ -67,6 +67,7 @@ object Schedule {
 
     private[this] object ttStopLight extends TimerTask {
       def run(): Unit = {
+        light.setRGB(Vector.fill(config.ledCount)(0))
         Main.shutdownPi()
 
         val serverOpt = playerOpt.flatMap { player =>

@@ -43,7 +43,8 @@ object Player {
       val in    = In.ar(0, config.numChannels)
       val amp   = "master-amp".kr(config.masterGainDb.dbAmp)
       val sig0  = in * amp
-      val sig   = Limiter.ar(sig0, level = config.masterLimiterDb.dbAmp)
+      val sig1  = if (config.masterHPF < 50) sig0 else HPF.ar(sig0, config.masterHPF)
+      val sig   = Limiter.ar(sig1, level = config.masterLimiterDb.dbAmp, dur = 0.1)
       ReplaceOut.ar(0, sig)
     }
     Synth.playOnce(g, nameHint = Some("master"))(target = s.defaultGroup, addAction = addToTail)
@@ -111,7 +112,7 @@ object Player {
     private[this] val listRef = Ref(list0)
     private[this] val inUse   = TSet.empty[Entry]
     private[this] val synSet  = TSet.empty[Synth]
-    private[this] val index   = Ref(0)
+    private[this] val index   = Ref((math.random() * list0.size).toInt)
     private[this] val running = Ref(false)
 
     private[this] val g = SynthGraph {
@@ -168,6 +169,7 @@ object Player {
 
       for (ch <- 0 until numSyn) {
         val idx     = (idx0 + ch) % list.size
+//        val idx     = (idx0 + 0) % list.size  // try unison for more volume
         val e       = list(idx)
         val ampDb   = if (ch < config.chanAmpsDb.size) config.chanAmpsDb(ch) else -60.0
         val ampVal  = ampDb.dbAmp

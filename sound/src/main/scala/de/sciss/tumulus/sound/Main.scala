@@ -208,6 +208,11 @@ object Main extends MainLike {
         .validate { v => if (v <= 0.0) success else failure("Must be <= 0") }
         .action { (v, c) => c.copy(masterLimiterDb = v) }
 
+      opt[Double]("master-hpf")
+        .text(s"Master high pass filter in Hz (default: ${default.masterHPF})")
+        .validate { v => if (v >= 0.0) success else failure("Must be >= 0") }
+        .action { (v, c) => c.copy(masterHPF = v) }
+
       opt[Double]("led-gain-red")
         .text(s"Linear gain factor for the red LEDs (default: ${default.ledGainRed})")
         .validate { v => if (v > 0.0 && v <= 2.0) success else failure("Must be > 0 and <= 2") }
@@ -266,7 +271,9 @@ object Main extends MainLike {
       if (!config.isLaptop && !config.noCrazyEth0Story) {
         try {
           eth0down()
-          Thread.sleep(6000)
+          Thread.sleep(4000)
+          pingSome()
+          Thread.sleep(2000)
           eth0up()
           Thread.sleep(6000)
         } catch {
@@ -277,6 +284,11 @@ object Main extends MainLike {
       val localSocketAddress = Network.mkOwnSocket(0)
       run(localSocketAddress)
     }
+  }
+
+  def pingSome()(implicit config: Config): Boolean = {
+    val tr = tryPrint(IO.process("ping", args = List("-c", "3", config.sftpHost), timeOutSec = 120)(_ => ()))
+    tr.isSuccess
   }
 
   def eth0down()(implicit config: Config): Boolean = {
@@ -397,7 +409,7 @@ object Main extends MainLike {
       } .toOption
     }
 
-    val sch = Schedule(as, downloadOpt, playerTr.toOption)
+    val sch = Schedule(as, light, downloadOpt, playerTr.toOption)
 
 
 
