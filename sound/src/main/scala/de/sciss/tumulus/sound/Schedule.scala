@@ -88,7 +88,13 @@ object Schedule {
           _    <- tryPrint(Await.result(kill, Duration(20, TimeUnit.SECONDS)))
         } ()
 
-        tryPrint(Main.hibernateSelf())
+        tryPrint {
+          if (config.hibernateSound) {
+            Main.hibernateSelf()
+          } else {
+            Main.shutdownSelf()
+          }
+        }
         println("Returning from sleep. 10 sec before reboot...")
         Thread.sleep(10000)
         Main.rebootSelf()

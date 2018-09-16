@@ -57,6 +57,7 @@ final case class Config(isLaptop          : Boolean   = false,
                         lightStopWeekend  : TimeOfDay = TimeOfDay(22, 0),
                         noSchedule        : Boolean   = false,
                         noCrazyEth0Story  : Boolean   = false,
+                        hibernateSound    : Boolean   = false,
 ) extends ConfigLike {
 
   def sftpAddress(path: String): String = s"$sftpUser@$sftpHost:$path"

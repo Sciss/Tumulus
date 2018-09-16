@@ -257,6 +257,9 @@ object Main extends MainLike {
         .text("Do not fiddle around with ifconfig eth0")
         .action { (_, c) => c.copy(noCrazyEth0Story = true) }
 
+      opt[Unit]("hibernate")
+        .text("Hibernate sound computer instead of shutdown")
+        .action { (_, c) => c.copy(hibernateSound = true) }
     }
     p.parse(args, default).fold(sys.exit(1)) { config0 =>
       println(nameVersion)
